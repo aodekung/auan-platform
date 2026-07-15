@@ -1,0 +1,27 @@
+# Ignore backend and internal packages — Vercel only deploys frontend
+apps/api/
+packages/
+docs/
+scripts/
+
+# Turbo cache
+.turbo/
+
+# IDE
+.vscode/
+.idea/
+
+# Test
+coverage/
+
+# Database files
+*.db
+
+# Logs
+*.log
+
+# Uploads (local dev only)
+apps/api/uploads/
+
+# Backups
+backups/
