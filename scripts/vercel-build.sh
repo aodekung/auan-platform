@@ -23,3 +23,4 @@ cp -r apps/admin/dist/* vercel-output/admin/
 
 echo "==> Build complete. Output in vercel-output/"
 ls -la vercel-output/
+ls -la vercel-output/admin/
