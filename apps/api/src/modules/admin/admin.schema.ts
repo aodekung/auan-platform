@@ -67,7 +67,7 @@ export const toggleStatusBodySchema = z.object({
 // ─────────────────────────────────────────────────────────────
 
 const successSchema = z.object({ success: z.boolean() }).passthrough()
-const errorSchema = z.object({ success: z.literal(false) }).passthrough()
+const errorSchema = z.object({ success: z.boolean() }).passthrough()
 
 export const dashboardRouteSchema = {
   response: {

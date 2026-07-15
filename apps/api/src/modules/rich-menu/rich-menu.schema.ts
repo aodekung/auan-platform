@@ -27,7 +27,7 @@ export { deployRichMenuBodySchema }
 // ─────────────────────────────────────────────────────────────
 
 const errorResponseSchema = z.object({
-  success: z.literal(false),
+  success: z.boolean(),
   error: z.object({
     code: z.string(),
     message: z.string(),
