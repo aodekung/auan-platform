@@ -20,10 +20,11 @@ import { webhookHealthRouteSchema, webhookRouteSchema } from "./line-webhook.sch
 
 export async function lineWebhookRoutes(app: FastifyInstance): Promise<void> {
   // POST /webhooks/line — receive LINE events
-  // addContentTypeParser with rawBody captures the original body string
-  // before Fastify parses it as JSON. This is required for LINE webhook
-  // signature verification (HMAC-SHA256 against raw bytes).
-  app.addContentTypeParser("application/json", {
+  // Register a custom content type for LINE webhooks that parses the body
+  // as a raw string (needed for HMAC-SHA256 signature verification).
+  // Using a custom type "application/line-webhook+json" instead of overriding
+  // the global "application/json" parser, so other routes are unaffected.
+  app.addContentTypeParser("application/line-webhook+json", {
     parseAs: "string",
   }, (_req, body: string, done) => {
     done(null, body)

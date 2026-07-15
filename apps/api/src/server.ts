@@ -1,6 +1,9 @@
 import fastifyCookie from "@fastify/cookie"
 import Fastify from "fastify"
-import type { ZodTypeProvider } from "fastify-type-provider-zod"
+import {
+  validatorCompiler,
+  type ZodTypeProvider,
+} from "fastify-type-provider-zod"
 
 import { AppError } from "./common/errors.js"
 import { env } from "./config/env.js"
@@ -36,7 +39,9 @@ const app = Fastify({
         : undefined,
   },
   requestIdHeader: "x-request-id",
-}).withTypeProvider<ZodTypeProvider>()
+})
+  .withTypeProvider<ZodTypeProvider>()
+  .setValidatorCompiler(validatorCompiler)
 
 async function bootstrap() {
   // Security
