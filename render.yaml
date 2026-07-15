@@ -5,7 +5,7 @@ services:
     rootDir: .
     buildCommand: |
       pnpm install --no-frozen-lockfile --prod=false
-      cd apps/api && npx prisma@6 generate
+      cd apps/api && npx prisma@6 generate && cd ..
       pnpm --filter @auan/api build
       cd apps/api && npx prisma@6 migrate deploy
     startCommand: node apps/api/dist/server.js
