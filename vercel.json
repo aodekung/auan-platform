@@ -1,15 +1,29 @@
 {
-  "version": 2,
-  "builds": [
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm --filter @auan/customer build && pnpm --filter @auan/admin build && rm -rf vercel-output && mkdir -p vercel-output/admin && cp -r apps/customer/dist/* vercel-output/ && cp -r apps/admin/dist/* vercel-output/admin/ && ls -la vercel-output/",
+  "outputDirectory": "vercel-output",
+  "rewrites": [
+    { "source": "/admin", "destination": "/admin/index.html" },
+    { "source": "/admin/:match*", "destination": "/admin/index.html" },
     {
-      "src": "package.json",
-      "use": "@vercel/static-build"
+      "source": "/((?!assets|admin/assets|favicon|robots).*)",
+      "destination": "/index.html"
     }
   ],
-  "routes": [
-    { "src": "/admin/(.*)", "dest": "/admin/index.html" },
-    { "src": "/admin", "dest": "/admin/index.html" },
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/index.html" }
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/admin/assets/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
   ]
 }
