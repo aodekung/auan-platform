@@ -1,0 +1,565 @@
+// ──────────────────────────────────────────────────────────────
+// Auan-Auan-Platform — Prisma Schema
+// Version: 2.1.0
+// Last Updated: 2026-07-14
+//
+// Source of Truth: docs/01-system-design/178-prisma-schema.md
+// Conflict Resolution:
+//   - OrderStatus/PaymentStatus: String type (per 173-database-design.md)
+//     Values from 158-order-status.md (13) and 155-payment-workflow.md (7)
+//   - No onDelete: Cascade (per 80-database-rules.md)
+//   - No DB-level enums for status fields (reserved for future ERP)
+// ──────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ENUMERATIONS
+// ═══════════════════════════════════════════════════════════════
+// Note: ProductStatus is the only DB-level enum in MVP.
+// Per 173-database-design.md, OrderStatus and PaymentStatus use
+// String type to allow status expansion without migration.
+// Future ERP modules may introduce additional DB enums.
+
+enum ProductStatus {
+  ACTIVE
+  DISABLED
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CUSTOMER DOMAIN
+// ═══════════════════════════════════════════════════════════════
+
+/// Customer profile from LINE Login.
+/// One Customer may have many Addresses, one Cart, and many Orders.
+model Customer {
+  id          String   @id @default(uuid())
+  lineUserId  String   @unique
+  displayName String
+  pictureUrl  String
+  phone       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  addresses      CustomerAddress[]
+  cart           Cart?
+  orders         Order[]
+  refreshTokens  RefreshToken[]
+
+  @@map("customers")
+}
+
+/// Delivery address for a customer.
+/// A customer may have multiple addresses; one can be default.
+model CustomerAddress {
+  id         String   @id @default(uuid())
+  customerId String
+  building   String
+  roomNumber String?
+  note       String?
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id])
+  orders   Order[]
+
+  @@index([customerId])
+  @@map("customer_addresses")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PRODUCT DOMAIN
+// ═══════════════════════════════════════════════════════════════
+
+/// Product category (e.g., "Mala Skewers", "Sauce").
+model Category {
+  id           String   @id @default(uuid())
+  name         String
+  description  String?
+  displayOrder Int
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  products Product[]
+
+  @@map("categories")
+}
+
+/// Menu item. Belongs to exactly one Category.
+/// Has optional option groups (e.g., Spice Level, Sauce).
+/// Supports SKU for inventory tracking.
+/// imageUrl stores a single primary image (per 151-product-catalog.md).
+model Product {
+  id           String        @id @default(uuid())
+  categoryId   String
+  sku          String?       @unique
+  name         String
+  nameEn       String?
+  description  String?
+  imageUrl     String?
+  price        Decimal       @db.Decimal(10, 2)
+  status       ProductStatus @default(ACTIVE)
+  displayOrder Int
+  isAvailable  Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  category     Category            @relation(fields: [categoryId], references: [id])
+  optionGroups ProductOptionGroup[]
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
+
+  @@index([categoryId])
+  @@index([status])
+  @@index([displayOrder])
+  @@map("products")
+}
+
+/// Group of selectable options for a Product (e.g., "Spice Level").
+/// Each group belongs to one Product.
+model ProductOptionGroup {
+  id           String   @id @default(uuid())
+  productId    String
+  name         String
+  required     Boolean  @default(true)
+  multiple     Boolean  @default(false)
+  displayOrder Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  product Product         @relation(fields: [productId], references: [id])
+  options  ProductOption[]
+
+  @@index([productId])
+  @@map("product_option_groups")
+}
+
+/// Individual selectable option within a group (e.g., "Extra Hot").
+/// additionalPrice defaults to 0.
+model ProductOption {
+  id              String  @id @default(uuid())
+  optionGroupId   String
+  name            String
+  additionalPrice Decimal @db.Decimal(10, 2) @default(0)
+  displayOrder    Int
+  isActive        Boolean @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  optionGroup ProductOptionGroup @relation(fields: [optionGroupId], references: [id])
+
+  @@index([optionGroupId])
+  @@map("product_options")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CART DOMAIN
+// ═══════════════════════════════════════════════════════════════
+
+/// Temporary shopping cart. One per Customer.
+/// Cleared after successful payment (per 150-business-rules.md).
+model Cart {
+  id         String   @id @default(uuid())
+  customerId String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  customer Customer   @relation(fields: [customerId], references: [id])
+  items    CartItem[]
+
+  @@map("carts")
+}
+
+/// Line item in the shopping cart.
+/// Stores the product snapshot (unitPrice) at time of adding.
+/// Per 152-product-options.md: "Changing an option creates a new cart configuration."
+/// Selected options are stored as a JSON array with a hash for merge detection.
+/// Same product + same options = merge into one item (increment quantity).
+model CartItem {
+  id              String   @id @default(uuid())
+  cartId          String
+  productId       String
+  productName     String                // Snapshot: product name at add time
+  quantity        Int
+  unitPrice       Decimal  @db.Decimal(10, 2)
+  subtotal        Decimal  @db.Decimal(10, 2)
+  selectedOptions Json?                 // JSON array of { optionGroupId, optionId, optionName, additionalPrice }
+  optionsHash     String?               // SHA-256 hash of selectedOptions for merge detection
+  note            String?               // Special note for this item
+  createdAt       DateTime @default(now())
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([cartId, productId, optionsHash])
+  @@index([cartId])
+  @@index([productId])
+  @@map("cart_items")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ORDER DOMAIN
+// ═══════════════════════════════════════════════════════════════
+// Order statuses: String type per 173-database-design.md.
+// Valid values from 158-order-status.md:
+//   PENDING, AWAITING_PAYMENT, AWAITING_VERIFICATION, PAID,
+//   QUEUED, PREPARING, READY, OUT_FOR_DELIVERY, DELIVERED,
+//   COMPLETED, CANCELLED, EXPIRED, PAYMENT_REJECTED
+
+/// Customer order. One Order has one Payment and many OrderItems.
+/// orderNumber format: ORD-YYYYMMDD-NNNNNN (per 154-order-workflow.md).
+model Order {
+  id            String   @id @default(uuid())
+  customerId    String
+  orderNumber   String   @unique
+  addressId     String?
+  subtotal      Decimal  @db.Decimal(10, 2)
+  total         Decimal  @db.Decimal(10, 2)
+  orderStatus   String   @default("PENDING")
+  paymentStatus String   @default("UNPAID")
+  note          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  customer      Customer       @relation(fields: [customerId], references: [id])
+  address       CustomerAddress? @relation(fields: [addressId], references: [id])
+  items         OrderItem[]
+  payment       Payment?
+  statusHistory OrderStatusHistory[]
+  notifications Notification[]
+
+  @@index([customerId])
+  @@index([orderStatus])
+  @@index([paymentStatus])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+/// Ordered product line item. Snapshots product data at order time.
+/// Historical orders must preserve original prices (per 153-pricing-rules.md).
+model OrderItem {
+  id        String  @id @default(uuid())
+  orderId   String
+  productId String
+  productName  String
+  quantity  Int
+  unitPrice Decimal @db.Decimal(10, 2)
+  subtotal  Decimal @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+
+  order   Order          @relation(fields: [orderId], references: [id])
+  product Product         @relation(fields: [productId], references: [id])
+  options OrderItemOption[]
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+/// Selected option snapshot for an OrderItem.
+/// Stores optionName as string to preserve historical data even
+/// if the original ProductOption is later modified or deleted.
+model OrderItemOption {
+  id              String  @id @default(uuid())
+  orderItemId     String
+  optionName      String
+  additionalPrice Decimal @db.Decimal(10, 2) @default(0)
+
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id])
+
+  @@index([orderItemId])
+  @@map("order_item_options")
+}
+
+/// Immutable status transition log for an Order.
+/// Every status change must create a record (per 158-order-status.md).
+model OrderStatusHistory {
+  id           String   @id @default(uuid())
+  orderId      String
+  fromStatus   String?
+  toStatus     String
+  changedBy    String?  // LINE User ID or "system"
+  reason       String?
+  createdAt    DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([createdAt])
+  @@map("order_status_histories")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PAYMENT DOMAIN
+// ═══════════════════════════════════════════════════════════════
+// Payment statuses: String type per 173-database-design.md.
+// Valid values from 155-payment-workflow.md (7):
+//   PENDING, AWAITING_VERIFICATION, PAID,
+//   REJECTED, FAILED, EXPIRED, REFUNDED
+
+/// Payment record for an Order. One Order has one Payment.
+/// Uses fixed PromptPay QR in MVP (per 155-payment-workflow.md).
+/// verifiedBy stores who verified the payment (LINE User ID).
+model Payment {
+  id            String    @id @default(uuid())
+  orderId       String    @unique
+  method        String    @default("PROMPTPAY")
+  amount        Decimal   @db.Decimal(10, 2)
+  paymentStatus String    @default("PENDING")
+  slipImage     String?   // payment proof image URL
+  paidAt        DateTime?
+  verifiedAt    DateTime?
+  verifiedBy    String?   // LINE User ID of verifier
+  rejectReason  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([paymentStatus])
+  @@index([createdAt])
+  @@map("payments")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NOTIFICATION DOMAIN
+// ═══════════════════════════════════════════════════════════════
+// Notification statuses from 159-notification-rules.md:
+//   PENDING, SENDING, SENT, FAILED, CANCELLED
+
+/// Notification record. Stores every notification sent to
+/// customers and business owner (per 159-notification-rules.md).
+/// Notification history must never be deleted from the database.
+/// deletedAt enables soft-delete: hides from user without removing record.
+/// readAt tracks when the recipient opened the notification.
+model Notification {
+  id                  String    @id @default(uuid())
+  orderId             String?   // nullable for non-order notifications
+  recipientLineUserId String
+  type                String    // e.g., ORDER_CREATED, PAYMENT_VERIFIED, KITCHEN_READY
+  channel             String    @default("LINE") // LINE, PUSH, EMAIL, SMS
+  status              String    @default("PENDING")
+  title               String?
+  body                String?
+  payload             Json?     // additional data for the notification
+  sentAt              DateTime?
+  failedAt            DateTime?
+  readAt              DateTime?
+  retryCount          Int       @default(0)
+  maxRetries          Int       @default(3)
+  errorMessage        String?
+  deletedAt           DateTime? // soft-delete: hides from user
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  order Order? @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([recipientLineUserId, deletedAt])
+  @@index([status])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+/// Notification template for each notification type.
+/// Stores title/body with placeholder support (e.g., {{customerName}}).
+/// Admin can manage templates via API without code deployment.
+model NotificationTemplate {
+  id          String   @id @default(uuid())
+  type        String   @unique  // notification type key, e.g., ORDER_CREATED
+  channel     String   @default("LINE") // target channel for this template
+  title       String   // template with placeholders: e.g., "Order {{orderNumber}} Created"
+  body        String   // template with placeholders
+  description String?  // human-readable description of when this template is used
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([type])
+  @@index([channel])
+  @@map("notification_templates")
+}
+
+/// Per-customer notification preferences.
+/// Controls which notification types and channels the customer wants.
+model NotificationPreference {
+  id                  String   @id @default(uuid())
+  lineUserId          String   @unique // FK to Customer.lineUserId
+  enabled             Boolean  @default(true) // master toggle
+  preferredLanguage   String   @default("th")
+  channelsEnabled      Json     @default("{}") // { "LINE": true, "EMAIL": false, ... }
+  typesDisabled       Json?    // array of disabled notification type keys, e.g., ["SYSTEM_ANNOUNCEMENT"]
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([lineUserId])
+  @@map("notification_preferences")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SETTINGS DOMAIN
+// ═══════════════════════════════════════════════════════════════
+// Derived from 155-payment-workflow.md (PromptPay info),
+// 150-business-rules.md (operating hours, delivery area),
+// 157-kitchen-workflow.md (estimated prep time).
+// Key-value store for flexible configuration.
+
+/// System and store settings. Key-value store organized by category.
+/// Categories: store, business_hours, payment, delivery, notification, system.
+/// No cascade — settings are managed explicitly.
+model Setting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  category    String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@map("settings")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUDIT DOMAIN
+// ═══════════════════════════════════════════════════════════════
+// Per 80-database-rules.md: "Critical business actions should
+// remain traceable."
+// Per 170-system-architecture.md: Audit Logs track user actions,
+// data changes, permission changes.
+
+/// Audit log for critical business actions.
+/// Immutable — records must never be modified or deleted.
+/// actorId stores LINE User ID of the person who triggered the action.
+model AuditLog {
+  id         String   @id @default(uuid())
+  action     String   // e.g., ORDER_CREATED, PAYMENT_VERIFIED, PRODUCT_UPDATED
+  entityType String?  // e.g., Order, Product, Payment
+  entityId   String?  // UUID of the affected entity
+  actorId    String?  // LINE User ID of the actor
+  actorName  String?  // Display name at the time of action
+  details    Json?    // { old: {...}, new: {...} } or additional context
+  ipAddress  String?  // Future: IP address of the actor
+  userAgent  String?  // Future: User agent string
+  createdAt  DateTime @default(now())
+
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STAFF DOMAIN
+// ═══════════════════════════════════════════════════════════════
+// Per 170-system-architecture.md: "Future versions should support
+// role-based access control."
+// Per 175-authentication-authorization.md: "Future support:
+// Manager, Kitchen Staff, Delivery Staff, Cashier, Administrator"
+//
+// Staff auth via Email + Password (separate from LINE Login).
+// Roles stored as String type for flexibility (same pattern as
+// OrderStatus/PaymentStatus per 173-database-design.md).
+// StaffRole table acts as enum-like reference with metadata.
+
+/// Staff role reference table.
+/// Provides metadata for role definitions (description, permissions).
+/// Seed data: OWNER, ADMINISTRATOR, KITCHEN, STAFF.
+model StaffRole {
+  id          String   @id @default(uuid())
+  name        String   @unique // e.g., OWNER, ADMINISTRATOR, KITCHEN, STAFF
+  description String?
+  permissions Json?    // Flexible permission map for future RBAC expansion
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  staffs Staff[]
+
+  @@map("staff_roles")
+}
+
+/// Staff account for admin/kitchen/backend login.
+/// Authenticates via email + password (bcrypt hash).
+/// Separate from Customer (LINE Login) auth flow.
+/// Soft-deleted via deletedAt (per 80-database-rules.md).
+model Staff {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String    // bcrypt hash — never store plaintext
+  displayName  String
+  phoneNumber  String?
+  avatarUrl    String?
+  role         String    @default("STAFF") // references StaffRole.name
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  deletedAt    DateTime? // soft-delete
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  staffRole StaffRole?    @relation(fields: [role], references: [name])
+  sessions  StaffSession[]
+
+  @@index([role])
+  @@index([isActive])
+  @@map("staffs")
+}
+
+/// Staff session record. One Staff may have multiple sessions
+/// (different devices). Tokens are hashed before storage.
+/// Expired sessions should be cleaned up periodically.
+model StaffSession {
+  id        String   @id @default(uuid())
+  staffId   String
+  tokenHash String   @unique // SHA-256 hash of the opaque refresh token
+  expiresAt DateTime // Session expiration timestamp
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  staff Staff @relation(fields: [staffId], references: [id])
+
+  @@index([staffId])
+  @@index([tokenHash])
+  @@index([expiresAt])
+  @@map("staff_sessions")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUTH DOMAIN
+// ═══════════════════════════════════════════════════════════════
+// Per 175-authentication-authorization.md:
+//   "Future: Refresh Tokens, Token Revocation, Multi-Device Sessions"
+//
+// Refresh tokens are stored as SHA-256 hashes (never plaintext).
+// Each refresh token is a random opaque string, NOT a JWT.
+// Per 100-security-rules.md: "Never expose secrets or tokens in logs."
+
+/// Refresh token record. One Customer may have multiple refresh tokens
+/// (e.g., from different devices). Tokens are hashed before storage.
+/// Expired tokens should be cleaned up periodically.
+model RefreshToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique  // SHA-256 hash of the opaque refresh token
+  userId    String              // FK to Customer
+  expiresAt DateTime            // Token expiration timestamp
+  createdAt DateTime @default(now())
+
+  customer Customer @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}

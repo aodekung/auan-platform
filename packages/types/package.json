@@ -1,0 +1,19 @@
+{
+  "name": "@auan/types",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "lint": "eslint src/",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@auan/eslint-config": "workspace:*",
+    "@auan/tsconfig": "workspace:*",
+    "eslint": "^9.17.0",
+    "typescript": "^5.7.2"
+  }
+}

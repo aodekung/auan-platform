@@ -1,0 +1,16 @@
+{
+  "name": "@auan/tailwind-config",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./tailwind.config.ts",
+  "scripts": {
+    "lint": "eslint .",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "tailwindcss": "^3.4.17"
+  },
+  "devDependencies": {
+    "eslint": "^9.17.0"
+  }
+}

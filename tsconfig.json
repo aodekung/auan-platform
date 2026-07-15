@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "composite": true,
+    "incremental": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@auan/types": ["./packages/types/src"],
+      "@auan/utils": ["./packages/utils/src"],
+      "@auan/ui": ["./packages/ui/src"],
+      "@auan/eslint-config": ["./packages/eslint-config"],
+      "@auan/tailwind-config": ["./packages/tailwind-config"]
+    }
+  },
+  "exclude": ["node_modules", "dist"]
+}

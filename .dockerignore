@@ -1,0 +1,52 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build output
+dist
+build
+.next
+out
+
+# Environment (NEVER enter Docker image)
+.env
+.env.local
+.env.production
+.env.staging
+
+# Git
+.git
+.gitignore
+
+# Documentation
+docs
+*.md
+LICENSE
+
+# IDE
+.vscode
+.idea
+
+# AI / Agent tools
+.agents
+.zcode
+.clinerules
+skills-lock.json
+
+# Turbo cache
+.turbo
+
+# Testing
+coverage
+*.test.ts
+tests/
+
+# Docker
+docker-compose*.yml
+.dockerignore
+
+# Misc
+*.tgz
+*.log
+backups/
+uploads/
