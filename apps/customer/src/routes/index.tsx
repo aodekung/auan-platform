@@ -12,7 +12,9 @@ import { OrdersPage } from "../pages/orders-page"
 import { PaymentPage } from "../pages/payment-page"
 import { ProductDetailPage } from "../pages/product-detail-page"
 import { ProfilePage } from "../pages/profile-page"
+import { AddressesPage } from "../pages/addresses-page"
 import { StorePage } from "../pages/store-page"
+import { FavoritesPage } from "../pages/favorites-page"
 import { ProtectedRoute } from "../components/guards/protected-route"
 import { PublicRoute } from "../components/guards/public-route"
 
@@ -31,7 +33,9 @@ const router = createBrowserRouter([
       { path: "orders", element: <ProtectedRoute><OrdersPage /></ProtectedRoute> },
       { path: "orders/:id", element: <ProtectedRoute><OrderDetailPage /></ProtectedRoute> },
       { path: "profile", element: <ProtectedRoute><ProfilePage /></ProtectedRoute> },
+      { path: "addresses", element: <ProtectedRoute><AddressesPage /></ProtectedRoute> },
       { path: "store", element: <StorePage /> },
+      { path: "favorites", element: <ProtectedRoute><FavoritesPage /></ProtectedRoute> },
       { path: "*", element: <NotFoundPage /> },
     ],
   },

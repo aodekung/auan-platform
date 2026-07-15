@@ -58,4 +58,7 @@ export type {
 export type { NotificationResponse } from "@auan/types"
 
 // Domain types — Auth
-export type { AuthProfileResponse, LoginResponse } from "@auan/types"
+export type { AuthProfileResponse, LoginResponse, UpdateProfileRequest } from "@auan/types"
+
+// Domain types — Favorites
+export type { FavoriteResponse, FavoriteCheckResponse, ProductListItemResponse } from "@auan/types"

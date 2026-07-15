@@ -1,4 +1,5 @@
 export { AuditLogRepository } from "./audit-log.repository.js"
+export { FavoriteRepository } from "./favorite.repository.js"
 export { CartItemRepository } from "./cart-item.repository.js"
 export { CartRepository } from "./cart.repository.js"
 export { CategoryRepository } from "./category.repository.js"

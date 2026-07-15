@@ -8,3 +8,4 @@ export { useStoreSettings, useBusinessHours, useIsStoreOpen } from "./use-settin
 export { useNotifications, useUnreadNotificationCount, useMarkNotificationRead, useMarkAllNotificationsRead } from "./use-notifications"
 export { useLogin, useLogout, useAuthProfile, useSilentLogin } from "./use-auth"
 export { useLiff, LiffGate } from "./use-liff"
+export { useFavorites, useIsFavorited, useToggleFavorite, useAddFavorite, useRemoveFavorite } from "./use-favorites"

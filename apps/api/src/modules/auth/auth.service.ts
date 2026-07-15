@@ -303,6 +303,38 @@ export async function getMe(userId: string): Promise<MeResponse> {
   }
 }
 
+/**
+ * Update the current authenticated user's phone number.
+ *
+ * Only phone is editable — displayName and pictureUrl come from LINE
+ * and are synced on each login.
+ */
+export async function updateMe(
+  userId: string,
+  data: { phone?: string },
+): Promise<MeResponse> {
+  const customer = await customerRepo.findById(userId)
+
+  if (!customer) {
+    throw new AppError(404, ErrorCode.NOT_FOUND, "Customer not found")
+  }
+
+  const updated = await customerRepo.update(userId, {
+    ...(data.phone !== undefined && { phone: data.phone }),
+  })
+
+  return {
+    id: updated.id,
+    lineUserId: updated.lineUserId,
+    displayName: updated.displayName,
+    pictureUrl: updated.pictureUrl,
+    phone: updated.phone,
+    role: resolveRole(updated.lineUserId),
+    createdAt: updated.createdAt.toISOString(),
+    updatedAt: updated.updatedAt.toISOString(),
+  }
+}
+
 // ─────────────────────────────────────────────────────────────
 // Staff Login / Logout / Refresh
 // ─────────────────────────────────────────────────────────────

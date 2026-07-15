@@ -5,7 +5,7 @@ import { Button } from "../components/ui/button"
 import { Card, CardContent } from "../components/ui/card"
 import { Separator } from "../components/ui/separator"
 import { StatusBadge } from "../components/order/status-badge"
-import { OrderStatusTimeline } from "../components/order/order-status-timeline"
+import { OrderTimeline } from "../components/order/order-timeline"
 import { useOrderDetail, useCancelOrder } from "../hooks/use-orders"
 import { ErrorState } from "../components/feedback"
 import { ErrorBoundary } from "../components/feedback/error-boundary"
@@ -85,7 +85,7 @@ export function OrderDetailPage() {
         <Card>
           <CardContent className="p-4">
             <h2 className="mb-3 text-sm font-semibold">สถานะออเดอร์</h2>
-            <OrderStatusTimeline currentStatus={order.orderStatus} />
+            <OrderTimeline currentStatus={order.orderStatus} statusHistory={order.statusHistory} />
           </CardContent>
         </Card>
 

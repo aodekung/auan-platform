@@ -14,6 +14,7 @@ import {
   lineLoginHandler,
   logoutHandler,
   meHandler,
+  updateMeHandler,
   refreshHandler,
   staffLoginHandler,
   staffLogoutHandler,
@@ -25,6 +26,7 @@ import {
   lineLoginRouteSchema,
   logoutRouteSchema,
   meRouteSchema,
+  updateMeRouteSchema,
   refreshRouteSchema,
   staffLoginRouteSchema,
   staffLogoutRouteSchema,
@@ -63,6 +65,14 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     schema: meRouteSchema,
     preHandler: [authenticate],
     handler: meHandler,
+  })
+
+  // ── PATCH /auth/me ────────────────────────────────────────
+  // Requires valid JWT access token.
+  app.patch("/api/v1/auth/me", {
+    schema: updateMeRouteSchema,
+    preHandler: [authenticate],
+    handler: updateMeHandler,
   })
 
   // ── POST /auth/staff/login ────────────────────────────────

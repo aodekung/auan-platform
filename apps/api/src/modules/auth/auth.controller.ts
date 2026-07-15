@@ -11,8 +11,8 @@ import type { FastifyRequest, FastifyReply } from "fastify"
 import { successResponse } from "../../common/response.js"
 import { env } from "../../config/env.js"
 
-import type { LineLoginBody, RefreshTokenBody } from "./auth.schema.js"
-import { logout, loginWithLine, getMe, refreshTokens, loginWithStaff, refreshStaffToken, staffLogout, getStaffMe } from "./auth.service.js"
+import type { LineLoginBody, RefreshTokenBody, UpdateMeBody } from "./auth.schema.js"
+import { logout, loginWithLine, getMe, updateMe, refreshTokens, loginWithStaff, refreshStaffToken, staffLogout, getStaffMe } from "./auth.service.js"
 import type { JwtPayload } from "./auth.types.js"
 import {
   clearTokenCookies,
@@ -112,6 +112,22 @@ export async function meHandler(
 
   void reply.code(200).send(
     successResponse(profile, "Profile retrieved successfully"),
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// PATCH /api/v1/auth/me
+// ─────────────────────────────────────────────────────────────
+
+export async function updateMeHandler(
+  request: FastifyRequest<{ Body: UpdateMeBody }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const user = request.user as unknown as JwtPayload
+  const profile = await updateMe(user.userId, request.body)
+
+  void reply.code(200).send(
+    successResponse(profile, "Profile updated successfully"),
   )
 }
 

@@ -35,6 +35,16 @@ export const refreshTokenBodySchema = z.object({
 
 export type RefreshTokenBody = z.infer<typeof refreshTokenBodySchema>
 
+/** PATCH /auth/me — Phone number update (Thai format). */
+export const updateMeBodySchema = z.object({
+  phone: z
+    .string()
+    .regex(/^0\d{8,9}$/, "Invalid Thai phone number (must start with 0, 9-10 digits)")
+    .optional(),
+})
+
+export type UpdateMeBody = z.infer<typeof updateMeBodySchema>
+
 // ─────────────────────────────────────────────────────────────
 // Response Schemas (for Fastify + Swagger)
 // ─────────────────────────────────────────────────────────────
@@ -138,6 +148,24 @@ export const meRouteSchema = {
       data: customerProfileSchema,
       message: z.string(),
     }),
+    401: errorResponseSchema,
+    404: errorResponseSchema,
+  },
+} as const
+
+/** PATCH /api/v1/auth/me */
+export const updateMeRouteSchema = {
+  description: "Update current user profile (phone only)",
+  tags: ["Auth"],
+  security: [{ bearerAuth: [] }],
+  body: updateMeBodySchema,
+  response: {
+    200: z.object({
+      success: z.literal(true),
+      data: customerProfileSchema,
+      message: z.string(),
+    }),
+    400: errorResponseSchema,
     401: errorResponseSchema,
     404: errorResponseSchema,
   },

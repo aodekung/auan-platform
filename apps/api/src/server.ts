@@ -16,6 +16,7 @@ import { productOptionRoutes } from "./modules/product-options/index.js"
 import { productRoutes } from "./modules/products/index.js"
 import { settingsRoutes } from "./modules/settings/index.js"
 import { lineWebhookRoutes } from "./modules/line-webhook/index.js"
+import { favoriteRoutes } from "./modules/favorites/index.js"
 import { richMenuRoutes } from "./modules/rich-menu/index.js"
 import { registerCors } from "./plugins/cors.js"
 import { registerHelmet } from "./plugins/helmet.js"
@@ -74,6 +75,7 @@ async function bootstrap() {
   await adminRoutes(app)
   await lineWebhookRoutes(app)
   await richMenuRoutes(app)
+  await favoriteRoutes(app)
 
   // Error handler
   app.setErrorHandler((error: unknown, request, reply) => {

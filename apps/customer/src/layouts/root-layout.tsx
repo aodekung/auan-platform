@@ -1,12 +1,13 @@
 import { useEffect } from "react"
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
-import { Home, Package, User } from "lucide-react"
+import { Home, Package, User, Heart } from "lucide-react"
 
 import { cn } from "../lib/utils"
 import { getLiffContext } from "../lib/liff"
 
 const NAV_ITEMS = [
   { to: "/menu", label: "เมนู", icon: Home },
+  { to: "/favorites", label: "รายการโปรด", icon: Heart },
   { to: "/orders", label: "ออเดอร์", icon: Package },
   { to: "/profile", label: "โปรไฟล์", icon: User },
 ] as const

@@ -3,7 +3,7 @@ import { useCallback } from "react"
 
 import { apiClient } from "../lib/api-client"
 import { getLiffIdToken, isLiffLoggedIn, liffLogout } from "../lib/liff"
-import type { AuthProfileResponse, LoginResponse } from "../api"
+import type { AuthProfileResponse, LoginResponse, UpdateProfileRequest } from "../api"
 import { useAuth } from "../providers/auth-provider"
 
 // ─────────────────────────────────────────────────────────────
@@ -21,6 +21,7 @@ export function useLogin() {
         userId: data.customer.id,
         displayName: data.customer.displayName,
         pictureUrl: data.customer.pictureUrl,
+        phone: null,
       })
     },
   })
@@ -49,6 +50,7 @@ export function useSilentLogin() {
         userId: response.customer.id,
         displayName: response.customer.displayName,
         pictureUrl: response.customer.pictureUrl,
+        phone: null,
       })
       return true
     } catch {
@@ -82,5 +84,21 @@ export function useLogout() {
 export function useAuthProfile() {
   return useMutation({
     mutationFn: () => apiClient.get<AuthProfileResponse>("/auth/me"),
+  })
+}
+
+// ─────────────────────────────────────────────────────────────
+// Update Profile
+// ─────────────────────────────────────────────────────────────
+
+export function useUpdateProfile() {
+  const { updateProfile } = useAuth()
+
+  return useMutation({
+    mutationFn: (data: UpdateProfileRequest) =>
+      apiClient.patch<AuthProfileResponse>("/auth/me", data),
+    onSuccess: (data) => {
+      updateProfile(data)
+    },
   })
 }

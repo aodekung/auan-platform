@@ -415,6 +415,10 @@ declare module "@auan/types" {
     updatedAt: string
   }
 
+  export interface UpdateProfileRequest {
+    phone?: string
+  }
+
   export interface LoginResponse {
     accessToken: string
     refreshToken: string

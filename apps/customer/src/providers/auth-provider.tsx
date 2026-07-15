@@ -5,6 +5,7 @@ interface AuthState {
   userId: string | null
   displayName: string | null
   pictureUrl: string | null
+  phone: string | null
   refreshToken: string | null
 }
 
@@ -12,6 +13,7 @@ interface AuthContextType extends AuthState {
   login: (token: string, refreshToken: string, user: Omit<AuthState, "isAuthenticated" | "refreshToken">) => void
   logout: () => void
   setTokens: (accessToken: string, refreshToken: string) => void
+  updateProfile: (profile: { phone?: string | null; displayName?: string | null; pictureUrl?: string | null }) => void
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -23,11 +25,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const userId = localStorage.getItem("user_id")
     const displayName = localStorage.getItem("display_name")
     const pictureUrl = localStorage.getItem("picture_url")
+    const phone = localStorage.getItem("phone")
     return {
       isAuthenticated: !!token,
       userId,
       displayName,
       pictureUrl,
+      phone,
       refreshToken,
     }
   })
@@ -42,6 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("user_id", user.userId ?? "")
     localStorage.setItem("display_name", user.displayName ?? "")
     localStorage.setItem("picture_url", user.pictureUrl ?? "")
+    localStorage.setItem("phone", user.phone ?? "")
     setAuthState({ ...user, isAuthenticated: true, refreshToken })
   }
 
@@ -51,11 +56,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("user_id")
     localStorage.removeItem("display_name")
     localStorage.removeItem("picture_url")
+    localStorage.removeItem("phone")
     setAuthState({
       isAuthenticated: false,
       userId: null,
       displayName: null,
       pictureUrl: null,
+      phone: null,
       refreshToken: null,
     })
   }
@@ -67,8 +74,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthState((prev) => ({ ...prev, refreshToken }))
   }
 
+  /** Update profile fields (e.g., phone from PATCH /auth/me). */
+  const updateProfile = (profile: { phone?: string | null; displayName?: string | null; pictureUrl?: string | null }) => {
+    if (profile.phone !== undefined) {
+      localStorage.setItem("phone", profile.phone ?? "")
+    }
+    if (profile.displayName !== undefined) {
+      localStorage.setItem("display_name", profile.displayName ?? "")
+    }
+    if (profile.pictureUrl !== undefined) {
+      localStorage.setItem("picture_url", profile.pictureUrl ?? "")
+    }
+    setAuthState((prev) => ({
+      ...prev,
+      ...(profile.phone !== undefined && { phone: profile.phone }),
+      ...(profile.displayName !== undefined && { displayName: profile.displayName }),
+      ...(profile.pictureUrl !== undefined && { pictureUrl: profile.pictureUrl }),
+    }))
+  }
+
   return (
-    <AuthContext.Provider value={{ ...authState, login, logout, setTokens }}>
+    <AuthContext.Provider value={{ ...authState, login, logout, setTokens, updateProfile }}>
       {children}
     </AuthContext.Provider>
   )
