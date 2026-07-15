@@ -1,5 +1,5 @@
 {
-  "buildCommand": "bash scripts/vercel-build.sh",
+  "buildCommand": "pnpm install --frozen-lockfile && cd apps/customer && pnpm build && cd ../.. && cd apps/admin && pnpm build && cd ../.. && rm -rf vercel-output && mkdir -p vercel-output/admin && cp -r apps/customer/dist/* vercel-output/ && cp -r apps/admin/dist/* vercel-output/admin/",
   "outputDirectory": "vercel-output",
   "rewrites": [
     { "source": "/admin", "destination": "/admin/index.html" },
