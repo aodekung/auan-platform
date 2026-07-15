@@ -11,7 +11,7 @@ npx prisma@6 generate
 echo "==> Building API..."
 npx tsc
 
-echo "==> Deploying database migrations..."
-npx prisma@6 migrate deploy
+echo "==> Syncing database schema..."
+npx prisma@6 db push --skip-generate
 
 echo "==> Build complete!"
