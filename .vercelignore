@@ -1,7 +1,6 @@
 # Ignore backend — Vercel only deploys frontend
 apps/api/
 docs/
-scripts/
 
 # Turbo cache
 .turbo/
