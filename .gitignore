@@ -42,5 +42,8 @@ backups/
 # Uploads
 apps/api/uploads/
 
+# Vercel Build Output (generated during build)
+.vercel/output/
+
 # Misc
 *.tgz

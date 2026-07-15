@@ -1,21 +1,51 @@
 /**
- * Merge customer + admin dist folders into vercel-output/
- * Used by "pnpm vercel:build" for Vercel deployment.
+ * Merge customer + admin dist folders into .vercel/output/static/
+ * Vercel Build Output API v3 — uses .vercel/output/static as native output.
  */
-import { cpSync, mkdirSync, rmSync } from "node:fs"
+import { cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { resolve, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, "..")
-const outDir = resolve(root, "vercel-output")
+const staticDir = resolve(root, ".vercel/output/static")
 
-console.log("==> Merging dist folders...")
+console.log("==> Merging dist folders into .vercel/output/static/")
 
-rmSync(outDir, { recursive: true, force: true })
-mkdirSync(resolve(outDir, "admin"), { recursive: true })
+rmSync(resolve(root, ".vercel/output"), { recursive: true, force: true })
+mkdirSync(resolve(staticDir, "admin"), { recursive: true })
 
-cpSync(resolve(root, "apps/customer/dist"), outDir, { recursive: true })
-cpSync(resolve(root, "apps/admin/dist"), resolve(outDir, "admin"), { recursive: true })
+// Copy customer app (serves at root /)
+cpSync(resolve(root, "apps/customer/dist"), staticDir, { recursive: true })
 
-console.log("==> Build complete. Output in vercel-output/")
+// Copy admin app (serves at /admin/)
+cpSync(resolve(root, "apps/admin/dist"), resolve(staticDir, "admin"), { recursive: true })
+
+// Write Vercel Build Output config
+const configDir = resolve(root, ".vercel/output/config")
+mkdirSync(configDir, { recursive: true })
+
+// Routes config for SPA rewrites
+writeFileSync(resolve(configDir, "routes.json"), JSON.stringify([
+  { src: "/admin", dest: "/admin/index.html" },
+  { src: "/admin/(.*)", dest: "/admin/index.html" },
+  { src: "/((?!assets|admin/assets|favicon|robots).*)", dest: "/index.html" },
+]))
+
+// Headers config for cache
+writeFileSync(resolve(configDir, "headers.json"), JSON.stringify([
+  {
+    source: "/assets/(.*)",
+    headers: [
+      { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+    ],
+  },
+  {
+    source: "/admin/assets/(.*)",
+    headers: [
+      { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+    ],
+  },
+]))
+
+console.log("==> Build complete. Output in .vercel/output/static/")
