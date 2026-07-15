@@ -2,7 +2,9 @@
 set -e
 
 echo "==> Installing dependencies..."
-pnpm install --no-frozen-lockfile --ignore-scripts
+# Render sets NODE_ENV=production which causes pnpm to skip devDependencies.
+# But we need @types/*, @auan/tsconfig, and typescript for tsc to work.
+NODE_ENV="" pnpm install --no-frozen-lockfile --ignore-scripts
 
 echo "==> Generating Prisma Client..."
 cd apps/api
