@@ -20,7 +20,7 @@
               ▼
   ┌──────────────────────────────────────────────────────┐
   │  Render (ฟรี)                                        │
-  │  └── https://auan-api.onrender.com/api/v1  ← Backend  │
+  │  └── https://auan-platform.onrender.com/api/v1 ← Backend │
   └──────────────────────────────────────────────────────┘
               │  Query
               ▼
@@ -29,6 +29,9 @@
   │  └── PostgreSQL Serverless               ← ฐานข้อมูล │
   └──────────────────────────────────────────────────────┘
 ```
+
+> **หมายเหตุ:** Render URL ขึ้นอยู่กับชื่อ service ที่ตั้งใน Render Dashboard
+> ถ้าตั้งชื่อ service เป็น `auan-platform` → URL จะเป็น `https://auan-platform.onrender.com`
 
 ---
 
@@ -93,43 +96,51 @@ git push -u origin main
 
 ### 3.2 สร้าง Web Service
 
-1. กด **New** → **Blueprint** (หรือ **Web Service**)
+1. กด **New** → **Web Service**
 2. เลือก GitHub repo `auan-platform`
-3. Render จะอ่าน `render.yaml` อัตโนมัติ
-4. กด **Apply**
 
-> ถ้า Render ไม่อ่าน `render.yaml` อัตโนมัติ ให้สร้างเอง:
-> - **Name**: `auan-api`
-> - **Runtime**: Node.js
-> - **Root Directory**: `.` (root)
-> - **Build Command**:
->   ```
->   corepack enable && pnpm install --frozen-lockfile && pnpm --filter @auan/api build && cd apps/api && npx prisma migrate deploy
->   ```
-> - **Start Command**:
->   ```
->   node apps/api/dist/server.js
->   ```
+> ⚠️ โปรเจกต์นี้ **ไม่มี** `render.yaml` — ต้องตั้งค่าเองทั้งหมดด้านล่างนี้:
+
+3. ตั้งค่า Build Settings:
+
+| Setting | Value |
+|---------|-------|
+| **Name** | `auan-platform` (หรือชื่อที่ต้องการ) |
+| **Runtime** | Node.js |
+| **Root Directory** | `.` (root — ไม่ต้องเปลี่ยน) |
+| **Build Command** | `bash scripts/render-build.sh` |
+| **Start Command** | `node apps/api/dist/server.js` |
 
 ### 3.3 ตั้ง Environment Variables
 
-ใน Render Dashboard → ของคุณ service → **Environment**:
+ใน Render Dashboard → service ของคุณ → **Environment**:
 
 | Variable | Value | หมายเหตุ |
 |----------|-------|---------|
-| `NODE_ENV` | `production` | อัตโนมัติจาก render.yaml |
+| `NODE_ENV` | `production` | |
 | `PORT` | (auto) | Render กำหนดให้ |
 | `DATABASE_URL` | `postgresql://auan-owner:xxxx@ep-xxx.neon.tech/auan-platform?sslmode=require` | **จาก Neon ขั้นตอน 1.3** |
-| `JWT_SECRET` | สร้างเอง | `openssl rand -hex 32` |
-| `STAFF_JWT_SECRET` | สร้างอีกอัน | ต่างจาก JWT_SECRET |
+| `JWT_SECRET` | สร้างเอง | `openssl rand -hex 32` — ต้อง ≥ 32 ตัวอักษร |
+| `STAFF_JWT_SECRET` | สร้างอีกอัน | ต่างจาก JWT_SECRET — ต้อง ≥ 32 ตัวอักษร |
 | `LINE_CHANNEL_ID` | ตัวเลขจาก LINE Developers | |
 | `LINE_CHANNEL_SECRET` | คีย์จาก LINE Developers | |
-| `LINE_CHANNEL_ACCESS_TOKEN` | โทเคนจาก LINE Developers | optional |
-| `LINE_MESSAGING_ACCESS_TOKEN` | โทเคนจาก LINE Developers | ถ้าต่างจากด้านบน |
-| `LIFF_ID` | LIFF ID จาก LINE Developers | |
+| `LINE_CHANNEL_ACCESS_TOKEN` | โทเคนจาก LINE Developers | |
+| `LINE_MESSAGING_ACCESS_TOKEN` | โทเคนจาก LINE Developers | optional — ถ้าต่างจากด้านบน |
+| `LIFF_ID` | LIFF ID จาก LINE Developers | optional — ใช้สำหรับสร้าง LIFF URL |
 | `OWNER_LINE_USER_IDS` | LINE User ID ของเจ้าของ | คัดลอกจาก string JSON |
 | `FRONTEND_URL` | `https://auan-auan.vercel.app` | **จาก Vercel ขั้นตอน 4** (ดูก่อนตั้งนี้) |
-| `JWT_COOKIE_SECURE` | `true` | อัตโนมัติจาก render.yaml |
+| `JWT_COOKIE_SECURE` | `true` | **จำเป็นสำหรับ production** |
+
+> **Optional env vars** (มีค่า default อยู่แล้ว — ไม่ต้องตั้งก็ได้):
+> - `AUTH_TOKEN_SOURCE` (default: `"bearer"`)
+> - `REFRESH_TOKEN_EXPIRY_DAYS` (default: `30`)
+> - `JWT_COOKIE_HTTP_ONLY` (default: `true`)
+> - `JWT_COOKIE_SAME_SITE` (default: `"lax"`)
+> - `STAFF_JWT_EXPIRY_HOURS` (default: `8`)
+> - `STAFF_SESSION_EXPIRY_DAYS` (default: `30`)
+> - `BCRYPT_SALT_ROUNDS` (default: `12`)
+> - `UPLOAD_PATH` (default: `"./uploads"`)
+> - `UPLOAD_MAX_SIZE` (default: `5242880` = 5MB)
 
 ### 3.4 Deploy
 
@@ -137,12 +148,12 @@ git push -u origin main
 
 รอ 2-5 นาที จนเห็น **"Live"** พร้อม URL เช่น:
 ```
-https://auan-api.onrender.com
+https://auan-platform.onrender.com
 ```
 
 ตรวจสอบ:
 ```
-https://auan-api.onrender.com/api/v1/health
+https://auan-platform.onrender.com/api/v1/health
 # ถ้าได้: {"success":true,"data":{"status":"ok"}} = สำเร็จ
 ```
 
@@ -162,18 +173,24 @@ https://auan-api.onrender.com/api/v1/health
 3. **Framework Preset**: เลือก **Other**
 4. กด **Deploy** (ค่า default อ่านจาก `vercel.json` อัตโนมัติ)
 
-> Vercel จะอ่าน `vercel.json` และรัน `scripts/vercel-build.sh` อัตโนมัติ
+> ⚠️ **สำคัญ — Vercel Dashboard Settings:**
+> - ถ้าเคยตั้งค่าผิดไว้ก่อนหน้านี้ → เข้า **Settings** → **General** → กด **Remove override** สำหรับ **Root Directory** และ **Output Directory**
+> - ให้ Vercel อ่านค่าจาก `vercel.json` โดยตรง (Root Directory = root, Output Directory จาก vercel.json)
+
+> Vercel จะอ่าน `vercel.json` และรัน `pnpm -w run vercel:build` อัตโนมัติ
+> ซึ่งจะ build ทั้ง customer + admin แล้ว merge เข้า `.vercel/output/static/` ผ่าน `scripts/merge-vercel-dist.mjs`
 
 ### 4.3 ตั้ง Environment Variables
 
-ใน Vercel Dashboard → ของคุณ project → **Settings** → **Environment Variables**:
+ใน Vercel Dashboard → project ของคุณ → **Settings** → **Environment Variables**:
 
 | Variable | Value | หมายเหตุ |
 |----------|-------|---------|
-| `VITE_API_BASE_URL` | `https://auan-api.onrender.com/api/v1` | **Render backend URL** |
+| `VITE_API_BASE_URL` | `https://auan-platform.onrender.com/api/v1` | **Render backend URL** |
+| `VITE_LIFF_ID` | LIFF ID จาก LINE Developers | เช่น `1234567890-xxxxxx` |
 
 > ⚠️ **สำคัญ:** `VITE_` prefix ถูก bake เข้า build ตอน build time
-> ถ้าเปลี่ยน Render URL ต้อง **Redeploy** ใหม่
+> ถ้าเปลี่ยนค่า env var ใดๆ ต้อง **Redeploy** ใหม่ทุกครั้ง
 
 ### 4.4 ตั้งค่าให้ Admin ทำงาน
 
@@ -184,7 +201,7 @@ Vercel จะอ่าน `vercel.json` อัตโนมัติ:
 
 ### 4.5 Redeploy หลังตั้ง env var
 
-เพราะ `VITE_API_BASE_URL` เป็น build-time env:
+เพราะ `VITE_*` เป็น build-time env:
 1. Vercel Dashboard → **Deployments**
 2. กด `...` → **Redeploy**
 3. รอ build 1-2 นาที
@@ -201,7 +218,7 @@ https://auan-auan.vercel.app/admin    → หน้าแอดมิน
 
 ถ้ายังไม่ได้ตั้ง `FRONTEND_URL` ใน Render:
 
-1. Render Dashboard → `auan-api` → **Environment**
+1. Render Dashboard → service ของคุณ → **Environment**
 2. เพิ่ม `FRONTEND_URL` = `https://auan-auan.vercel.app`
 3. กด **Save Changes** → Render จะ redeploy อัตโนมัติ
 
@@ -219,9 +236,13 @@ npx prisma db seed
 
 ```bash
 # วิธี 2: ผ่าน Render Shell
-# Render Dashboard → auan-api → Shell
+# Render Dashboard → service ของคุณ → Shell
 cd apps/api && npx prisma db seed
 ```
+
+> ⚠️ **Neon Serverless:** Seed script ใช้ query ทีละตัว (ไม่ใช้ transaction)
+> เพราะ Neon serverless มี transaction timeout ~5 วินาที
+> ถ้าเจอ timeout ให้ลองรันซ้ำอีกครั้ง
 
 ---
 
@@ -239,7 +260,10 @@ cd apps/api && npx prisma db seed
 ### 7.2 คัดลอก LIFF ID
 
 จากหน้า LIFF → คัดลอก LIFF ID (เช่น `1234567890-xxxxxx`)
-แล้วไปตั้งใน Render env var `LIFF_ID`
+
+ตั้งใน **ทั้ง 2 ที่**:
+- **Vercel** env var: `VITE_LIFF_ID` (สำหรับ frontend — แสดง LIFF login)
+- **Render** env var: `LIFF_ID` (สำหรับ backend — สร้าง LIFF URL)
 
 ---
 
@@ -248,12 +272,12 @@ cd apps/api && npx prisma db seed
 ### 8.1 Webhook URL
 
 1. LINE Developers Console → Messaging API → Webhook settings
-2. Webhook URL: `https://auan-api.onrender.com/api/v1/webhooks/line`
+2. Webhook URL: `https://auan-platform.onrender.com/api/v1/webhooks/line`
 3. เปิด **Use webhook**
 4. กด **Verify**
 
 > ⚠️ Render spin-down อาจทำให้ webhook verify ล้มเหลว
-> ให้ส่ง request ไปที่ `https://auan-api.onrender.com/api/v1/health` ก่อนเพื่อ wake up server
+> ให้ส่ง request ไปที่ `https://auan-platform.onrender.com/api/v1/health` ก่อนเพื่อ wake up server
 
 ---
 
@@ -291,12 +315,12 @@ git push
 **วิธีแก้ (ฟรี):**
 
 1. **UptimeRobot** — [uptimerobot.com](https://uptimerobot.com)
-   - สร้าง free monitor สำหรับ `https://auan-api.onrender.com/api/v1/health`
+   - สร้าง free monitor สำหรับ `https://auan-platform.onrender.com/api/v1/health`
    - ตั้ง ping ทุก 5 นาที → server จะไม่ sleep
 
 2. **Cron-job.org** — [cron-job.org](https://cron-job.org)
    - สร้าง free cron job ทุก 5 นาที
-   - URL: `https://auan-api.onrender.com/api/v1/health`
+   - URL: `https://auan-platform.onrender.com/api/v1/health`
 
 > ⚠️ ทั้งสองวิธีจะใช้ Render hours เร็วขึ้น (750 ชม./เดือน = ~25 ชม./วัน)
 > ถ้าใช้หมด → อัปเกรด Render เป็น $7/เดือน หรือย้ายไป OCI เมื่อโควตาว่าง
@@ -309,11 +333,11 @@ git push
 - [ ] Push โค้ดขึ้น GitHub
 - [ ] Deploy backend บน Render + ตั้ง env vars ทั้งหมด
 - [ ] Health check ผ่าน
-- [ ] Deploy frontend บน Vercel + ตั้ง `VITE_API_BASE_URL`
-- [ ] Redeploy Vercel
+- [ ] Deploy frontend บน Vercel + ตั้ง `VITE_API_BASE_URL` และ `VITE_LIFF_ID`
+- [ ] Redeploy Vercel (เพื่อ bake env vars)
 - [ ] กลับไปตั้ง `FRONTEND_URL` ใน Render
 - [ ] Seed database
-- [ ] สร้าง LIFF app + ตั้ง `LIFF_ID`
+- [ ] สร้าง LIFF app + ตั้ง `LIFF_ID` ทั้ง Vercel และ Render
 - [ ] ตั้ง LINE Webhook
 - [ ] ทดสอบทั้ง customer + admin
 - [ ] (แนะนำ) ตั้ง UptimeRobot ping ทุก 5 นาที

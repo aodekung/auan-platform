@@ -1,4 +1,4 @@
-import { PrismaClient, ProductStatus } from '@prisma/client';
+import { PrismaClient, Prisma, ProductStatus } from '@prisma/client';
 import { hash } from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -208,330 +208,332 @@ async function main() {
   console.log('=== Auan Auan Mala Fried — Database Seed ===');
   console.log('');
 
-  await prisma.$transaction(async (tx) => {
-    // ── 1. Settings ───────────────────────────────────────────────────
-    console.log('[1/10] Seeding Settings...');
-    for (const setting of SETTINGS) {
-      await tx.setting.upsert({
-        where: { key: setting.key },
-        update: { value: setting.value, category: setting.category, description: setting.description ?? null },
-        create: { key: setting.key, value: setting.value, category: setting.category, description: setting.description ?? null },
-      });
-    }
-    console.log(`        ${SETTINGS.length} settings upserted.`);
+  // Split into multiple small transactions to avoid Neon serverless P2028 timeout
+  // (Neon free tier has ~5s transaction timeout for interactive transactions)
 
-    // ── 2. Staff Roles ────────────────────────────────────────────────
-    console.log('[2/10] Seeding Staff Roles...');
-    for (const role of STAFF_ROLES) {
-      await tx.staffRole.upsert({
-        where: { name: role.name },
-        update: { description: role.description, isActive: role.isActive },
-        create: { name: role.name, description: role.description, isActive: role.isActive },
-      });
-    }
-    console.log(`        ${STAFF_ROLES.length} staff roles upserted.`);
-
-    // ── 3. Owner Staff Account ───────────────────────────────────────
-    console.log('[3/10] Seeding Owner account...');
-    const passwordHash = await hash(OWNER_PASSWORD, BCRYPT_ROUNDS);
-    await tx.staff.upsert({
-      where: { email: OWNER_EMAIL },
-      update: { displayName: 'Owner', role: 'OWNER', isActive: true, deletedAt: null },
-      create: { email: OWNER_EMAIL, passwordHash, displayName: 'Owner', role: 'OWNER' },
+  // ── 1. Settings ───────────────────────────────────────────────────
+  console.log('[1/10] Seeding Settings...');
+  for (const setting of SETTINGS) {
+    await prisma.setting.upsert({
+      where: { key: setting.key },
+      update: { value: setting.value, category: setting.category, description: setting.description ?? null },
+      create: { key: setting.key, value: setting.value, category: setting.category, description: setting.description ?? null },
     });
-    console.log(`        Owner account created (${OWNER_EMAIL}).`);
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`        ⚠️  Default owner password: ${OWNER_PASSWORD}`);
-    }
+  }
+  console.log(`        ${SETTINGS.length} settings upserted.`);
 
-    // ── 4. Notification Templates ──────────────────────────────────
-    console.log('[4/10] Seeding Notification Templates...');
-    for (const tmpl of NOTIFICATION_TEMPLATES) {
-      await tx.notificationTemplate.upsert({
-        where: { type: tmpl.type },
-        update: { channel: tmpl.channel, title: tmpl.title, body: tmpl.body, description: tmpl.description },
-        create: { type: tmpl.type, channel: tmpl.channel, title: tmpl.title, body: tmpl.body, description: tmpl.description },
-      });
-    }
-    console.log(`        ${NOTIFICATION_TEMPLATES.length} templates upserted.`);
-
-    // ── 5. Categories ───────────────────────────────────────────────
-    console.log('[5/10] Seeding Categories...');
-    await tx.category.deleteMany();
-    const categoryRecords = await Promise.all(
-      CATEGORIES.map((cat) =>
-        tx.category.create({
-          data: { name: cat.name, displayOrder: cat.displayOrder },
-        }),
-      ),
-    );
-    const categoryMap = new Map(categoryRecords.map((c) => [c.name, c.id]));
-    console.log(`        ${categoryRecords.length} categories created.`);
-
-    // ── 6. Products ──────────────────────────────────────────────────
-    console.log('[6/10] Seeding Products...');
-    await tx.productOption.deleteMany();
-    await tx.productOptionGroup.deleteMany();
-    await tx.product.deleteMany();
-
-    const productRecords: Array<{ id: string; hasOptions: boolean; name: string; price: number }> = [];
-    for (const [catName, products] of Object.entries(PRODUCTS)) {
-      const categoryId = categoryMap.get(catName)!;
-      for (const p of products) {
-        const created = await tx.product.create({
-          data: {
-            categoryId,
-            name: p.name,
-            nameEn: p.nameEn,
-            description: p.description,
-            price: p.price,
-            status: ProductStatus.ACTIVE,
-            displayOrder: p.displayOrder,
-            isAvailable: true,
-            sku: p.sku,
-          },
-        });
-        productRecords.push({ id: created.id, hasOptions: p.hasOptions, name: p.name, price: p.price });
-      }
-    }
-    console.log(`        ${productRecords.length} products created.`);
-
-    // ── 7. ProductOptionGroups & ProductOptions ────────────────────
-    console.log('[7/10] Seeding ProductOptionGroups & ProductOptions...');
-    let groupCount = 0;
-    let optionCount = 0;
-
-    for (const { id: productId, hasOptions } of productRecords) {
-      if (!hasOptions) continue;
-
-      // Spice Level group
-      const spiceGroup = await tx.productOptionGroup.create({
-        data: {
-          productId,
-          name: 'Spice Level',
-          required: true,
-          multiple: false,
-          displayOrder: 1,
-        },
-      });
-      groupCount++;
-
-      for (const opt of SPICE_LEVEL_OPTIONS) {
-        await tx.productOption.create({
-          data: {
-            optionGroupId: spiceGroup.id,
-            name: opt.name,
-            additionalPrice: 0,
-            displayOrder: opt.displayOrder,
-            isActive: true,
-          },
-        });
-        optionCount++;
-      }
-
-      // Sauce Selection group
-      const sauceGroup = await tx.productOptionGroup.create({
-        data: {
-          productId,
-          name: 'Sauce Selection',
-          required: true,
-          multiple: false,
-          displayOrder: 2,
-        },
-      });
-      groupCount++;
-
-      for (const opt of SAUCE_OPTIONS) {
-        await tx.productOption.create({
-          data: {
-            optionGroupId: sauceGroup.id,
-            name: opt.name,
-            additionalPrice: 0,
-            displayOrder: opt.displayOrder,
-            isActive: true,
-          },
-        });
-        optionCount++;
-      }
-    }
-
-    console.log(`        ${groupCount} option groups created.`);
-    console.log(`        ${optionCount} options created.`);
-
-    // ── 8. Demo Customer + Address ─────────────────────────────────
-    console.log('[8/10] Seeding Demo Customer...');
-
-    // Clean up existing demo order for idempotency (re-runnable seed)
-    const existingOrder = await tx.order.findFirst({
-      where: { orderNumber: 'ORD-DEMO-000001' },
+  // ── 2. Staff Roles ────────────────────────────────────────────────
+  console.log('[2/10] Seeding Staff Roles...');
+  for (const role of STAFF_ROLES) {
+    await prisma.staffRole.upsert({
+      where: { name: role.name },
+      update: { description: role.description, isActive: role.isActive },
+      create: { name: role.name, description: role.description, isActive: role.isActive },
     });
-    if (existingOrder) {
-      await tx.orderItemOption.deleteMany({ where: { orderItem: { orderId: existingOrder.id } } });
-      await tx.orderItem.deleteMany({ where: { orderId: existingOrder.id } });
-      await tx.orderStatusHistory.deleteMany({ where: { orderId: existingOrder.id } });
-      await tx.notification.deleteMany({ where: { orderId: existingOrder.id } });
-      await tx.payment.deleteMany({ where: { orderId: existingOrder.id } });
-      await tx.auditLog.deleteMany({ where: { entityType: 'Order', entityId: existingOrder.id } });
-      await tx.order.delete({ where: { id: existingOrder.id } });
-    }
+  }
+  console.log(`        ${STAFF_ROLES.length} staff roles upserted.`);
 
-    const demoCustomer = await tx.customer.upsert({
-      where: { lineUserId: DEMO_CUSTOMER.lineUserId },
-      update: { displayName: DEMO_CUSTOMER.displayName, pictureUrl: DEMO_CUSTOMER.pictureUrl },
-      create: DEMO_CUSTOMER,
-    });
-
-    // Address: deleteMany + create (schema has no composite unique for upsert)
-    await tx.customerAddress.deleteMany({
-      where: { customerId: demoCustomer.id, building: DEMO_ADDRESS.building, roomNumber: DEMO_ADDRESS.roomNumber },
-    });
-    const demoAddress = await tx.customerAddress.create({
-      data: {
-        customerId: demoCustomer.id,
-        building: DEMO_ADDRESS.building,
-        roomNumber: DEMO_ADDRESS.roomNumber,
-        note: DEMO_ADDRESS.note,
-        isDefault: true,
-      },
-    });
-
-    // Create demo cart
-    await tx.cart.upsert({
-      where: { customerId: demoCustomer.id },
-      update: {},
-      create: { customerId: demoCustomer.id },
-    });
-    console.log(`        Demo customer: ${DEMO_CUSTOMER.displayName}`);
-    console.log(`        Demo address: ตึก ${DEMO_ADDRESS.building} ห้อง ${DEMO_ADDRESS.roomNumber}`);
-
-    // ── 9. Demo Order (completed flow) ─────────────────────────────
-    console.log('[9/10] Seeding Demo Order...');
-    const orderNumber = 'ORD-DEMO-000001';
-    const now = Date.now();
-
-    // Use first 2 products for the demo order
-    const demoProducts = productRecords.slice(0, 2);
-    const unitPrice1 = new Prisma.Decimal(demoProducts[0].price);
-    const unitPrice2 = new Prisma.Decimal(demoProducts[1].price);
-    const qty1 = 3;
-    const qty2 = 2;
-    const subtotal = unitPrice1.mul(qty1).plus(unitPrice2.mul(qty2));
-
-    const demoOrder = await tx.order.create({
-      data: {
-        customerId: demoCustomer.id,
-        addressId: demoAddress.id,
-        orderNumber,
-        subtotal,
-        total: subtotal,
-        orderStatus: 'COMPLETED',
-        paymentStatus: 'PAID',
-        note: 'ไม่เผ็ด ใช้น้ำจิ้มมะล่า',
-      },
-    });
-
-    // Order items
-    await tx.orderItem.create({
-      data: {
-        orderId: demoOrder.id,
-        productId: demoProducts[0].id,
-        productName: demoProducts[0].name,
-        quantity: qty1,
-        unitPrice: unitPrice1,
-        subtotal: unitPrice1.mul(qty1),
-      },
-    });
-
-    const item2 = await tx.orderItem.create({
-      data: {
-        orderId: demoOrder.id,
-        productId: demoProducts[1].id,
-        productName: demoProducts[1].name,
-        quantity: qty2,
-        unitPrice: unitPrice2,
-        subtotal: unitPrice2.mul(qty2),
-      },
-    });
-
-    // Selected option for item 2
-    await tx.orderItemOption.create({
-      data: {
-        orderItemId: item2.id,
-        optionName: 'เผ็ดน้อย (Mild)',
-        additionalPrice: 0,
-      },
-    });
-
-    // Demo payment
-    await tx.payment.create({
-      data: {
-        orderId: demoOrder.id,
-        method: 'PROMPTPAY',
-        amount: subtotal,
-        paymentStatus: 'PAID',
-        paidAt: new Date(now - 30 * 60 * 1000), // 30 min ago
-        verifiedAt: new Date(now - 29 * 60 * 1000),
-        verifiedBy: 'system',
-      },
-    });
-
-    // Order status history (showing full lifecycle)
-    const statusTransitions = [
-      { to: 'PENDING', offset: -45 },
-      { to: 'AWAITING_PAYMENT', offset: -44 },
-      { to: 'AWAITING_VERIFICATION', offset: -35 },
-      { to: 'PAID', offset: -30 },
-      { to: 'QUEUED', offset: -28 },
-      { to: 'PREPARING', offset: -20 },
-      { to: 'READY', offset: -10 },
-      { to: 'OUT_FOR_DELIVERY', offset: -5 },
-      { to: 'DELIVERED', offset: -2 },
-      { to: 'COMPLETED', offset: -1 },
-    ];
-
-    for (const { to, offset } of statusTransitions) {
-      await tx.orderStatusHistory.create({
-        data: {
-          orderId: demoOrder.id,
-          toStatus: to,
-          changedBy: to === 'AWAITING_VERIFICATION' ? DEMO_CUSTOMER.lineUserId : 'system',
-          createdAt: new Date(now + offset * 60 * 1000),
-        },
-      });
-    }
-
-    // Demo notification
-    await tx.notification.create({
-      data: {
-        orderId: demoOrder.id,
-        recipientLineUserId: DEMO_CUSTOMER.lineUserId,
-        type: 'ORDER_DELIVERED',
-        channel: 'LINE',
-        status: 'SENT',
-        title: 'ส่งอาหารเรียบร้อยแล้ว 📦',
-        body: `ออเดอร์ ${orderNumber} จัดส่งแล้ว`,
-        sentAt: new Date(now - 2 * 60 * 1000),
-        readAt: new Date(now - 1 * 60 * 1000),
-      },
-    });
-
-    console.log(`        Demo order: ${orderNumber}`);
-    console.log(`        Total: ฿${subtotal.toFixed(2)} (${qty1}x ${demoProducts[0].name} + ${qty2}x ${demoProducts[1].name})`);
-
-    // ── 10. Demo Audit Log ──────────────────────────────────────────
-    console.log('[10/10] Seeding Demo Audit Log...');
-    await tx.auditLog.create({
-      data: {
-        action: 'ORDER_CREATED',
-        entityType: 'Order',
-        entityId: demoOrder.id,
-        actorId: DEMO_CUSTOMER.lineUserId,
-        actorName: DEMO_CUSTOMER.displayName,
-        details: { orderNumber },
-      },
-    });
-    console.log('        1 audit log created.');
+  // ── 3. Owner Staff Account ───────────────────────────────────────
+  console.log('[3/10] Seeding Owner account...');
+  const passwordHash = await hash(OWNER_PASSWORD, BCRYPT_ROUNDS);
+  await prisma.staff.upsert({
+    where: { email: OWNER_EMAIL },
+    update: { displayName: 'Owner', role: 'OWNER', isActive: true, deletedAt: null },
+    create: { email: OWNER_EMAIL, passwordHash, displayName: 'Owner', role: 'OWNER' },
   });
+  console.log(`        Owner account created (${OWNER_EMAIL}).`);
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`        ⚠️  Default owner password: ${OWNER_PASSWORD}`);
+  }
+
+  // ── 4. Notification Templates ──────────────────────────────────
+  console.log('[4/10] Seeding Notification Templates...');
+  for (const tmpl of NOTIFICATION_TEMPLATES) {
+    await prisma.notificationTemplate.upsert({
+      where: { type: tmpl.type },
+      update: { channel: tmpl.channel, title: tmpl.title, body: tmpl.body, description: tmpl.description },
+      create: { type: tmpl.type, channel: tmpl.channel, title: tmpl.title, body: tmpl.body, description: tmpl.description },
+    });
+  }
+  console.log(`        ${NOTIFICATION_TEMPLATES.length} templates upserted.`);
+
+  // ── 5. Categories ───────────────────────────────────────────────
+  console.log('[5/10] Seeding Categories...');
+  // Delete in FK-safe order: options → optionGroups → products → categories
+  await prisma.productOption.deleteMany();
+  await prisma.productOptionGroup.deleteMany();
+  await prisma.product.deleteMany();
+  await prisma.category.deleteMany();
+  const categoryRecords = await Promise.all(
+    CATEGORIES.map((cat) =>
+      prisma.category.create({
+        data: { name: cat.name, displayOrder: cat.displayOrder },
+      }),
+    ),
+  );
+  const categoryMap = new Map(categoryRecords.map((c) => [c.name, c.id]));
+  console.log(`        ${categoryRecords.length} categories created.`);
+
+  // ── 6. Products ──────────────────────────────────────────────────
+  console.log('[6/10] Seeding Products...');
+
+  const productRecords: Array<{ id: string; hasOptions: boolean; name: string; price: number }> = [];
+  for (const [catName, products] of Object.entries(PRODUCTS)) {
+    const categoryId = categoryMap.get(catName)!;
+    for (const p of products) {
+      const created = await prisma.product.create({
+        data: {
+          categoryId,
+          name: p.name,
+          nameEn: p.nameEn,
+          description: p.description,
+          price: p.price,
+          status: ProductStatus.ACTIVE,
+          displayOrder: p.displayOrder,
+          isAvailable: true,
+          sku: p.sku,
+        },
+      });
+      productRecords.push({ id: created.id, hasOptions: p.hasOptions, name: p.name, price: p.price });
+    }
+  }
+  console.log(`        ${productRecords.length} products created.`);
+
+  // ── 7. ProductOptionGroups & ProductOptions ────────────────────
+  console.log('[7/10] Seeding ProductOptionGroups & ProductOptions...');
+  let groupCount = 0;
+  let optionCount = 0;
+
+  for (const { id: productId, hasOptions } of productRecords) {
+    if (!hasOptions) continue;
+
+    // Spice Level group
+    const spiceGroup = await prisma.productOptionGroup.create({
+      data: {
+        productId,
+        name: 'Spice Level',
+        required: true,
+        multiple: false,
+        displayOrder: 1,
+      },
+    });
+    groupCount++;
+
+    for (const opt of SPICE_LEVEL_OPTIONS) {
+      await prisma.productOption.create({
+        data: {
+          optionGroupId: spiceGroup.id,
+          name: opt.name,
+          additionalPrice: 0,
+          displayOrder: opt.displayOrder,
+          isActive: true,
+        },
+      });
+      optionCount++;
+    }
+
+    // Sauce Selection group
+    const sauceGroup = await prisma.productOptionGroup.create({
+      data: {
+        productId,
+        name: 'Sauce Selection',
+        required: true,
+        multiple: false,
+        displayOrder: 2,
+      },
+    });
+    groupCount++;
+
+    for (const opt of SAUCE_OPTIONS) {
+      await prisma.productOption.create({
+        data: {
+          optionGroupId: sauceGroup.id,
+          name: opt.name,
+          additionalPrice: 0,
+          displayOrder: opt.displayOrder,
+          isActive: true,
+        },
+      });
+      optionCount++;
+    }
+  }
+
+  console.log(`        ${groupCount} option groups created.`);
+  console.log(`        ${optionCount} options created.`);
+
+  // ── 8. Demo Customer + Address ─────────────────────────────────
+  console.log('[8/10] Seeding Demo Customer...');
+
+  // Clean up existing demo order for idempotency (re-runnable seed)
+  const existingOrder = await prisma.order.findFirst({
+    where: { orderNumber: 'ORD-DEMO-000001' },
+  });
+  if (existingOrder) {
+    await prisma.orderItemOption.deleteMany({ where: { orderItem: { orderId: existingOrder.id } } });
+    await prisma.orderItem.deleteMany({ where: { orderId: existingOrder.id } });
+    await prisma.orderStatusHistory.deleteMany({ where: { orderId: existingOrder.id } });
+    await prisma.notification.deleteMany({ where: { orderId: existingOrder.id } });
+    await prisma.payment.deleteMany({ where: { orderId: existingOrder.id } });
+    await prisma.auditLog.deleteMany({ where: { entityType: 'Order', entityId: existingOrder.id } });
+    await prisma.order.delete({ where: { id: existingOrder.id } });
+  }
+
+  const demoCustomer = await prisma.customer.upsert({
+    where: { lineUserId: DEMO_CUSTOMER.lineUserId },
+    update: { displayName: DEMO_CUSTOMER.displayName, pictureUrl: DEMO_CUSTOMER.pictureUrl },
+    create: DEMO_CUSTOMER,
+  });
+
+  // Address: deleteMany + create (schema has no composite unique for upsert)
+  await prisma.customerAddress.deleteMany({
+    where: { customerId: demoCustomer.id, building: DEMO_ADDRESS.building, roomNumber: DEMO_ADDRESS.roomNumber },
+  });
+  const demoAddress = await prisma.customerAddress.create({
+    data: {
+      customerId: demoCustomer.id,
+      building: DEMO_ADDRESS.building,
+      roomNumber: DEMO_ADDRESS.roomNumber,
+      note: DEMO_ADDRESS.note,
+      isDefault: true,
+    },
+  });
+
+  // Create demo cart
+  await prisma.cart.upsert({
+    where: { customerId: demoCustomer.id },
+    update: {},
+    create: { customerId: demoCustomer.id },
+  });
+  console.log(`        Demo customer: ${DEMO_CUSTOMER.displayName}`);
+  console.log(`        Demo address: ตึก ${DEMO_ADDRESS.building} ห้อง ${DEMO_ADDRESS.roomNumber}`);
+
+  // ── 9. Demo Order (completed flow) ─────────────────────────────
+  console.log('[9/10] Seeding Demo Order...');
+  const orderNumber = 'ORD-DEMO-000001';
+  const now = Date.now();
+
+  // Use first 2 products for the demo order
+  const demoProducts = productRecords.slice(0, 2);
+  const unitPrice1 = new Prisma.Decimal(demoProducts[0].price);
+  const unitPrice2 = new Prisma.Decimal(demoProducts[1].price);
+  const qty1 = 3;
+  const qty2 = 2;
+  const subtotal = unitPrice1.mul(qty1).plus(unitPrice2.mul(qty2));
+
+  const demoOrder = await prisma.order.create({
+    data: {
+      customerId: demoCustomer.id,
+      addressId: demoAddress.id,
+      orderNumber,
+      subtotal,
+      total: subtotal,
+      orderStatus: 'COMPLETED',
+      paymentStatus: 'PAID',
+      note: 'ไม่เผ็ด ใช้น้ำจิ้มมะล่า',
+    },
+  });
+
+  // Order items
+  await prisma.orderItem.create({
+    data: {
+      orderId: demoOrder.id,
+      productId: demoProducts[0].id,
+      productName: demoProducts[0].name,
+      quantity: qty1,
+      unitPrice: unitPrice1,
+      subtotal: unitPrice1.mul(qty1),
+    },
+  });
+
+  const item2 = await prisma.orderItem.create({
+    data: {
+      orderId: demoOrder.id,
+      productId: demoProducts[1].id,
+      productName: demoProducts[1].name,
+      quantity: qty2,
+      unitPrice: unitPrice2,
+      subtotal: unitPrice2.mul(qty2),
+    },
+  });
+
+  // Selected option for item 2
+  await prisma.orderItemOption.create({
+    data: {
+      orderItemId: item2.id,
+      optionName: 'เผ็ดน้อย (Mild)',
+      additionalPrice: 0,
+    },
+  });
+
+  // Demo payment
+  await prisma.payment.create({
+    data: {
+      orderId: demoOrder.id,
+      method: 'PROMPTPAY',
+      amount: subtotal,
+      paymentStatus: 'PAID',
+      paidAt: new Date(now - 30 * 60 * 1000), // 30 min ago
+      verifiedAt: new Date(now - 29 * 60 * 1000),
+      verifiedBy: 'system',
+    },
+  });
+
+  // Order status history (showing full lifecycle)
+  const statusTransitions = [
+    { to: 'PENDING', offset: -45 },
+    { to: 'AWAITING_PAYMENT', offset: -44 },
+    { to: 'AWAITING_VERIFICATION', offset: -35 },
+    { to: 'PAID', offset: -30 },
+    { to: 'QUEUED', offset: -28 },
+    { to: 'PREPARING', offset: -20 },
+    { to: 'READY', offset: -10 },
+    { to: 'OUT_FOR_DELIVERY', offset: -5 },
+    { to: 'DELIVERED', offset: -2 },
+    { to: 'COMPLETED', offset: -1 },
+  ];
+
+  for (const { to, offset } of statusTransitions) {
+    await prisma.orderStatusHistory.create({
+      data: {
+        orderId: demoOrder.id,
+        toStatus: to,
+        changedBy: to === 'AWAITING_VERIFICATION' ? DEMO_CUSTOMER.lineUserId : 'system',
+        createdAt: new Date(now + offset * 60 * 1000),
+      },
+    });
+  }
+
+  // Demo notification
+  await prisma.notification.create({
+    data: {
+      orderId: demoOrder.id,
+      recipientLineUserId: DEMO_CUSTOMER.lineUserId,
+      type: 'ORDER_DELIVERED',
+      channel: 'LINE',
+      status: 'SENT',
+      title: 'ส่งอาหารเรียบร้อยแล้ว 📦',
+      body: `ออเดอร์ ${orderNumber} จัดส่งแล้ว`,
+      sentAt: new Date(now - 2 * 60 * 1000),
+      readAt: new Date(now - 1 * 60 * 1000),
+    },
+  });
+
+  console.log(`        Demo order: ${orderNumber}`);
+  console.log(`        Total: ฿${subtotal.toFixed(2)} (${qty1}x ${demoProducts[0].name} + ${qty2}x ${demoProducts[1].name})`);
+
+  // ── 10. Demo Audit Log ──────────────────────────────────────────
+  console.log('[10/10] Seeding Demo Audit Log...');
+  await prisma.auditLog.create({
+    data: {
+      action: 'ORDER_CREATED',
+      entityType: 'Order',
+      entityId: demoOrder.id,
+      actorId: DEMO_CUSTOMER.lineUserId,
+      actorName: DEMO_CUSTOMER.displayName,
+      details: { orderNumber },
+    },
+  });
+  console.log('        1 audit log created.');
 
   console.log('');
   console.log('=== Seed completed successfully! ===');
