@@ -1,6 +1,7 @@
 import fastifySwagger from "@fastify/swagger"
 import fastifySwaggerUi from "@fastify/swagger-ui"
 import type { FastifyInstance } from "fastify"
+import { jsonSchemaTransform } from "fastify-type-provider-zod"
 
 import { env } from "../config/env.js"
 
@@ -11,6 +12,7 @@ export async function registerSwagger(app: FastifyInstance) {
       : `http://localhost:${env.PORT}`
 
   await app.register(fastifySwagger, {
+    transform: jsonSchemaTransform,
     openapi: {
       openapi: "3.0.3",
       info: {

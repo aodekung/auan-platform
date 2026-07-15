@@ -20,8 +20,13 @@ import type { LineWebhookBody } from "./line-webhook.types.js"
 /**
  * Receive webhook events from LINE Platform.
  *
- * The raw body string is needed for signature verification (HMAC-SHA256),
- * so we read it from request.body which Fastify parses as JSON.
+ * The raw body string is needed for signature verification (HMAC-SHA256).
+ * Fastify stores the raw body in `request.rawBody` when content-type
+ * parser's rawBody option is enabled (configured in route options).
+ *
+ * IMPORTANT: We use `request.rawBody` (the original byte string from LINE)
+ * for HMAC verification — NOT `JSON.stringify(request.body)` which would
+ * re-serialize and produce different bytes than what LINE signed.
  *
  * LINE sends the raw body and expects a 200 response within 5 seconds.
  */
@@ -33,7 +38,6 @@ export async function webhookHandler(
   reply: FastifyReply,
 ): Promise<void> {
   const signature = request.headers["x-line-signature"]
-  const body = request.body
 
   if (!signature) {
     void reply.code(401).send(
@@ -42,8 +46,17 @@ export async function webhookHandler(
     return
   }
 
+  // Body arrives as a raw string (configured by addContentTypeParser in routes)
+  // We use it directly for HMAC verification, then parse for event processing
+  const rawBody = typeof request.body === "string"
+    ? request.body
+    : JSON.stringify(request.body)
+  const body: LineWebhookBody = typeof request.body === "string"
+    ? JSON.parse(request.body)
+    : request.body
+
   const result = processWebhook(
-    JSON.stringify(body),
+    rawBody,
     signature,
     body.events,
   )

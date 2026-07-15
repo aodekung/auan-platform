@@ -2,7 +2,7 @@
 set -e
 
 echo "==> Installing dependencies..."
-pnpm install --no-frozen-lockfile --prod=false
+pnpm install --no-frozen-lockfile --ignore-scripts
 
 echo "==> Generating Prisma Client..."
 cd apps/api
