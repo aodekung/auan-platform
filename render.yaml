@@ -3,11 +3,7 @@ services:
     name: auan-api
     runtime: node
     rootDir: .
-    buildCommand: |
-      pnpm install --no-frozen-lockfile --prod=false
-      cd apps/api && npx prisma@6 generate && cd ..
-      pnpm --filter @auan/api build
-      cd apps/api && npx prisma@6 migrate deploy
+    buildCommand: bash scripts/render-build.sh
     startCommand: node apps/api/dist/server.js
     envVars:
       - key: NODE_ENV
