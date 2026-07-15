@@ -1,6 +1,5 @@
-# Ignore backend and internal packages — Vercel only deploys frontend
+# Ignore backend — Vercel only deploys frontend
 apps/api/
-packages/
 docs/
 scripts/
 
