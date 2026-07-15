@@ -12,6 +12,7 @@
     "type-check": "turbo run type-check",
     "test": "turbo run test",
     "clean": "turbo run clean && rm -rf node_modules",
+    "vercel:build": "turbo run build --filter=@auan/customer --filter=@auan/admin && node scripts/merge-vercel-dist.mjs",
     "db:generate": "turbo run db:generate --filter=@auan/api",
     "db:migrate": "turbo run db:migrate --filter=@auan/api",
     "db:push": "turbo run db:push --filter=@auan/api",
