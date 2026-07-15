@@ -4,7 +4,9 @@ const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "production", "staging", "test"])
     .default("development"),
-  PORT: z.coerce.number().default(3000),
+  PORT: z.coerce
+    .number({ invalid_type_error: "PORT must be a number" })
+    .default(3000),
   DATABASE_URL: z.string().url(),
   JWT_SECRET: z.string().min(32),
   LINE_CHANNEL_ID: z.string(),
@@ -56,6 +58,11 @@ const envSchema = z.object({
 export type Env = z.infer<typeof envSchema>
 
 function validateEnv(): Env {
+  // Render may set PORT to empty string or non-numeric — fix before Zod parses
+  if (process.env.PORT && isNaN(Number(process.env.PORT))) {
+    delete process.env.PORT
+  }
+
   const result = envSchema.safeParse(process.env)
 
   if (!result.success) {
