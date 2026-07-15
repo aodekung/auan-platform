@@ -336,6 +336,38 @@ declare module "@auan/types" {
   }
 
   // ═══════════════════════════════════════════════════════════════
+  // Domain types — Products (list item variant)
+  // ═══════════════════════════════════════════════════════════════
+
+  export interface ProductListItemResponse {
+    id: string
+    name: string
+    nameEn: string | null
+    description: string | null
+    imageUrl: string | null
+    price: string
+    status: string
+    isAvailable: boolean
+    displayOrder: number
+    category: { id: string; name: string }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // Domain types — Favorites
+  // ═══════════════════════════════════════════════════════════════
+
+  export interface FavoriteResponse {
+    id: string
+    productId: string
+    product?: ProductListItemResponse
+    createdAt: string
+  }
+
+  export interface FavoriteCheckResponse {
+    isFavorited: boolean
+  }
+
+  // ═══════════════════════════════════════════════════════════════
   // Domain types — Payments
   // ═══════════════════════════════════════════════════════════════
 
