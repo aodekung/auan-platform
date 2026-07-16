@@ -160,6 +160,28 @@ export const paymentListRouteSchema = {
   tags: ["Admin"],
 }
 
+export const paymentDetailRouteSchema = {
+  params: z.object({ id: z.string().uuid() }),
+  response: { 200: successSchema, 401: errorSchema, 403: errorSchema, 404: errorSchema },
+  tags: ["Admin"],
+}
+
+export const orderListQuerySchema = paginationQuerySchema.extend({
+  status: z.string().optional(),
+})
+
+export const orderListRouteSchema = {
+  querystring: orderListQuerySchema,
+  response: { 200: successSchema, 401: errorSchema, 403: errorSchema },
+  tags: ["Admin"],
+}
+
+export const orderDetailRouteSchema = {
+  params: z.object({ id: z.string().uuid() }),
+  response: { 200: successSchema, 401: errorSchema, 403: errorSchema, 404: errorSchema },
+  tags: ["Admin"],
+}
+
 export const updateOrderStatusRouteSchema = {
   params: z.object({ id: z.string().uuid() }),
   body: z.object({

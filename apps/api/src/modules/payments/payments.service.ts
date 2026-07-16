@@ -433,6 +433,68 @@ export async function getPaymentByOrderId(
 }
 
 // ─────────────────────────────────────────────────────────────
+// Admin: Get payment by orderId (no customer ownership check)
+// ─────────────────────────────────────────────────────────────
+
+export async function getPaymentByOrderIdAdmin(
+  orderId: string,
+): Promise<PaymentWithOrderResponse> {
+  let payment = await prisma.payment.findUnique({ where: { orderId } })
+  if (!payment) {
+    throw new AppError(404, ErrorCode.PAYMENT_NOT_FOUND, "Payment not found for this order")
+  }
+
+  // Lazy timeout check: if PENDING and expired
+  if (payment.paymentStatus === "PENDING") {
+    const timeout = await getPaymentTimeout()
+    const createdAtMs = payment.createdAt.getTime()
+    const nowMs = Date.now()
+
+    if (nowMs - createdAtMs > timeout * 1000) {
+      const paymentId = payment.id
+
+      await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        await tx.payment.update({
+          where: { id: paymentId },
+          data: { paymentStatus: "EXPIRED" },
+        })
+
+        await tx.order.update({
+          where: { id: orderId },
+          data: { orderStatus: "EXPIRED" },
+        })
+
+        await tx.orderStatusHistory.create({
+          data: {
+            orderId,
+            fromStatus: "QUEUED", // fallback default
+            toStatus: "EXPIRED",
+            changedBy: null,
+            reason: "Payment timed out",
+          },
+        })
+      })
+
+      const refetched = await prisma.payment.findUnique({ where: { orderId } })
+      if (!refetched) {
+        throw new AppError(500, ErrorCode.INTERNAL_ERROR, "Failed to retrieve payment after timeout update")
+      }
+      payment = refetched
+    }
+  }
+
+  const orderWithItems = await orderRepo.findByIdWithDetails(orderId)
+  if (!orderWithItems) {
+    throw new AppError(500, ErrorCode.INTERNAL_ERROR, "Failed to retrieve order details")
+  }
+
+  return {
+    ...mapPayment(payment),
+    order: mapOrderSummary(orderWithItems),
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 // Upload Slip
 // ─────────────────────────────────────────────────────────────
 

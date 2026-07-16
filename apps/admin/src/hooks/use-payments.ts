@@ -49,7 +49,7 @@ export function useVerifyPayment() {
 
   return useMutation({
     mutationFn: async (paymentId: string) => {
-      return apiClient.post<PaymentResponse>(`/payments/${paymentId}/verify`)
+      return apiClient.post<PaymentResponse>(`/admin/payments/${paymentId}/verify`)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "payments"] })
@@ -68,7 +68,7 @@ export function useRejectPayment() {
 
   return useMutation({
     mutationFn: async ({ paymentId, reason }: { paymentId: string; reason?: string }) => {
-      return apiClient.post<PaymentResponse>(`/payments/${paymentId}/reject`, { reason })
+      return apiClient.post<PaymentResponse>(`/admin/payments/${paymentId}/reject`, { reason })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "payments"] })

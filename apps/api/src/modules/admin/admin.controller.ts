@@ -14,7 +14,7 @@ import { listAuditLogs, getSystemActivity } from "./admin.audit.service.js"
 import { listCustomers, getCustomer, getCustomerOrders, toggleCustomerStatus } from "./admin.customer.service.js"
 import { getDashboardSummary } from "./admin.dashboard.service.js"
 import { listStaff, getStaff, createStaff, updateStaff, toggleStaffStatus, resetStaffPassword } from "./admin.staff.service.js"
-import { listPayments } from "../payments/payments.service.js"
+import { listPayments, getPaymentByOrderIdAdmin } from "../payments/payments.service.js"
 import { updateOrderStatus } from "../orders/orders.service.js"
 import { OrderRepository } from "../../database/repositories/order.repository.js"
 import type { CreateStaffRequest, UpdateStaffRequest } from "./admin.types.js"
@@ -154,6 +154,12 @@ export async function paymentListHandler(request: FastifyRequest, reply: Fastify
     result.data,
     { page, pageSize, totalItems: result.total, totalPages: Math.ceil(result.total / pageSize) },
   ))
+}
+
+export async function paymentDetailHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { id } = request.params as { id: string }
+  const result = await getPaymentByOrderIdAdmin(id)
+  void reply.code(200).send(successResponse(result, "Payment retrieved successfully"))
 }
 
 // ─────────────────────────────────────────────────────────────

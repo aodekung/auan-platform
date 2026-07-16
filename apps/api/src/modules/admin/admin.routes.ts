@@ -26,12 +26,14 @@ import {
   staffToggleStatusHandler,
   staffResetPasswordHandler,
   paymentListHandler,
+  paymentDetailHandler,
   orderListHandler,
   orderDetailHandler,
   updateOrderStatusHandler,
   auditLogListHandler,
   systemActivityHandler,
 } from "./admin.controller.js"
+import { verifyPaymentHandler, rejectPaymentHandler } from "../payments/payments.controller.js"
 import {
   dashboardRouteSchema,
   customerListRouteSchema,
@@ -45,10 +47,14 @@ import {
   staffToggleStatusRouteSchema,
   staffResetPasswordRouteSchema,
   paymentListRouteSchema,
+  paymentDetailRouteSchema,
+  orderListRouteSchema,
+  orderDetailRouteSchema,
   updateOrderStatusRouteSchema,
   auditLogListRouteSchema,
   systemActivityRouteSchema,
 } from "./admin.schema.js"
+import { verifyPaymentRouteSchema, rejectPaymentRouteSchema } from "../payments/payments.schema.js"
 
 // Admin roles that can access all admin endpoints
 const ADMIN_ROLES = ["OWNER", "ADMINISTRATOR"]
@@ -145,16 +151,36 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     handler: paymentListHandler,
   })
 
+  app.get("/api/v1/admin/payments/:id", {
+    schema: paymentDetailRouteSchema,
+    preHandler: adminAuth,
+    handler: paymentDetailHandler,
+  })
+
+  app.post("/api/v1/admin/payments/:id/verify", {
+    schema: verifyPaymentRouteSchema,
+    preHandler: adminAuth,
+    handler: verifyPaymentHandler,
+  })
+
+  app.post("/api/v1/admin/payments/:id/reject", {
+    schema: rejectPaymentRouteSchema,
+    preHandler: adminAuth,
+    handler: rejectPaymentHandler,
+  })
+
   // ═══════════════════════════════════════════════════════════════
   // ORDER MANAGEMENT
   // ═══════════════════════════════════════════════════════════════
 
   app.get("/api/v1/admin/orders", {
+    schema: orderListRouteSchema,
     preHandler: adminAuth,
     handler: orderListHandler,
   })
 
   app.get("/api/v1/admin/orders/:id", {
+    schema: orderDetailRouteSchema,
     preHandler: adminAuth,
     handler: orderDetailHandler,
   })

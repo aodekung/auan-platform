@@ -21,16 +21,21 @@ cpSync(resolve(root, "apps/customer/dist"), staticDir, { recursive: true })
 // Copy admin app (serves at /admin/)
 cpSync(resolve(root, "apps/admin/dist"), resolve(staticDir, "admin"), { recursive: true })
 
-// Write Vercel Build Output config
+// Write Vercel Build Output config (config.json — NOT routes.json)
 const configDir = resolve(root, ".vercel/output/config")
 mkdirSync(configDir, { recursive: true })
 
-// Routes config for SPA rewrites
-writeFileSync(resolve(configDir, "routes.json"), JSON.stringify([
-  { src: "/admin", dest: "/admin/index.html" },
-  { src: "/admin/(.*)", dest: "/admin/index.html" },
-  { src: "/((?!assets|admin/assets|favicon|robots).*)", dest: "/index.html" },
-]))
+// Build Output API v3: routes go in config.json (NOT routes.json)
+writeFileSync(resolve(configDir, "config.json"), JSON.stringify({
+  version: 3,
+  routes: [
+    // Admin SPA — rewrite /admin and /admin/* to /admin/index.html
+    { src: "/admin", dest: "/admin/index.html" },
+    { src: "/admin/(.*)", dest: "/admin/index.html" },
+    // Customer SPA — rewrite everything else (except static assets) to /index.html
+    { src: "/((?!assets|admin/assets|favicon\\.ico|robots\\.txt|sitemap\\.xml).*)", dest: "/index.html" },
+  ],
+}, null, 2))
 
 // Headers config for cache
 writeFileSync(resolve(configDir, "headers.json"), JSON.stringify([
