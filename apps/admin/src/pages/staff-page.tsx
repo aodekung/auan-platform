@@ -504,7 +504,7 @@ export function StaffPage() {
 
   const handleDelete = () => {
     if (!deletingStaff) return
-    deleteStaff.mutate(deletingStaff.id, {
+    deleteStaff.mutate({ id: deletingStaff.id, isActive: false }, {
       onSuccess: () => {
         setDeletingStaff(null)
       },

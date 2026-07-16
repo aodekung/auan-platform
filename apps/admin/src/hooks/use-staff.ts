@@ -84,8 +84,8 @@ export function useToggleStaffStatus() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (id: string) => {
-      return apiClient.patch<StaffDetailResponse>(`/admin/staff/${id}/status`)
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      return apiClient.patch<StaffDetailResponse>(`/admin/staff/${id}/status`, { isActive })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "staff"] })
@@ -98,8 +98,8 @@ export function useDeleteStaff() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (id: string) => {
-      return apiClient.patch<StaffDetailResponse>(`/admin/staff/${id}/status`)
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      return apiClient.patch<StaffDetailResponse>(`/admin/staff/${id}/status`, { isActive })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "staff"] })
@@ -112,9 +112,14 @@ export function useDeleteStaff() {
 // ─────────────────────────────────────────────
 
 export function useResetPassword() {
+  const queryClient = useQueryClient()
+
   return useMutation({
     mutationFn: async (id: string) => {
       return apiClient.post<ResetPasswordResponse>(`/admin/staff/${id}/reset-password`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "staff"] })
     },
   })
 }

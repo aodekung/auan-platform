@@ -35,6 +35,19 @@ import {
 } from "./admin.controller.js"
 import { verifyPaymentHandler, rejectPaymentHandler } from "../payments/payments.controller.js"
 import {
+  listProductsHandler,
+  getProductHandler,
+  createProductHandler,
+  updateProductHandler,
+  deleteProductHandler,
+} from "../products/products.controller.js"
+import {
+  listCategoriesHandler,
+  createCategoryHandler,
+  updateCategoryHandler,
+  deleteCategoryHandler,
+} from "../categories/categories.controller.js"
+import {
   dashboardRouteSchema,
   customerListRouteSchema,
   customerDetailRouteSchema,
@@ -55,6 +68,19 @@ import {
   systemActivityRouteSchema,
 } from "./admin.schema.js"
 import { verifyPaymentRouteSchema, rejectPaymentRouteSchema } from "../payments/payments.schema.js"
+import {
+  listProductsRouteSchema,
+  getProductRouteSchema,
+  createProductRouteSchema,
+  updateProductRouteSchema,
+  deleteProductRouteSchema,
+} from "../products/products.schema.js"
+import {
+  listCategoriesRouteSchema,
+  createCategoryRouteSchema,
+  updateCategoryRouteSchema,
+  deleteCategoryRouteSchema,
+} from "../categories/categories.schema.js"
 
 // Admin roles that can access all admin endpoints
 const ADMIN_ROLES = ["OWNER", "ADMINISTRATOR"]
@@ -208,5 +234,67 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     schema: systemActivityRouteSchema,
     preHandler: adminAuth,
     handler: systemActivityHandler,
+  })
+
+  // ═══════════════════════════════════════════════════════════════
+  // PRODUCT MANAGEMENT
+  // ═══════════════════════════════════════════════════════════════
+
+  app.get("/api/v1/admin/products", {
+    schema: listProductsRouteSchema,
+    preHandler: adminAuth,
+    handler: listProductsHandler,
+  })
+
+  app.get("/api/v1/admin/products/:id", {
+    schema: getProductRouteSchema,
+    preHandler: adminAuth,
+    handler: getProductHandler,
+  })
+
+  app.post("/api/v1/admin/products", {
+    schema: createProductRouteSchema,
+    preHandler: adminAuth,
+    handler: createProductHandler,
+  })
+
+  app.patch("/api/v1/admin/products/:id", {
+    schema: updateProductRouteSchema,
+    preHandler: adminAuth,
+    handler: updateProductHandler,
+  })
+
+  app.delete("/api/v1/admin/products/:id", {
+    schema: deleteProductRouteSchema,
+    preHandler: adminAuth,
+    handler: deleteProductHandler,
+  })
+
+  // ═══════════════════════════════════════════════════════════════
+  // CATEGORY MANAGEMENT
+  // ═══════════════════════════════════════════════════════════════
+
+  app.get("/api/v1/admin/categories", {
+    schema: listCategoriesRouteSchema,
+    preHandler: adminAuth,
+    handler: listCategoriesHandler,
+  })
+
+  app.post("/api/v1/admin/categories", {
+    schema: createCategoryRouteSchema,
+    preHandler: adminAuth,
+    handler: createCategoryHandler,
+  })
+
+  app.patch("/api/v1/admin/categories/:id", {
+    schema: updateCategoryRouteSchema,
+    preHandler: adminAuth,
+    handler: updateCategoryHandler,
+  })
+
+  app.delete("/api/v1/admin/categories/:id", {
+    schema: deleteCategoryRouteSchema,
+    preHandler: adminAuth,
+    handler: deleteCategoryHandler,
   })
 }

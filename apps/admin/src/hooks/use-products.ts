@@ -23,7 +23,7 @@ export function useProducts(filters: ProductFilters = {}) {
   if (filters.status) params.set("status", filters.status)
 
   const query = params.toString()
-  const endpoint = `/products${query ? `?${query}` : ""}`
+  const endpoint = `/admin/products${query ? `?${query}` : ""}`
 
   return useQuery({
     queryKey: ["admin", "products", filters],
@@ -39,7 +39,7 @@ export function useProducts(filters: ProductFilters = {}) {
 export function useProductDetail(id: string) {
   return useQuery({
     queryKey: ["admin", "products", id],
-    queryFn: () => apiClient.get<ProductResponse>(`/products/${id}`),
+    queryFn: () => apiClient.get<ProductResponse>(`/admin/products/${id}`),
     enabled: !!id,
   })
 }
@@ -65,7 +65,7 @@ export function useCreateProduct() {
 
   return useMutation({
     mutationFn: (payload: CreateProductPayload) =>
-      apiClient.post<ProductResponse>("/products", payload),
+      apiClient.post<ProductResponse>("/admin/products", payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "products"] })
     },
@@ -83,7 +83,7 @@ export function useUpdateProduct() {
 
   return useMutation({
     mutationFn: ({ id, ...payload }: UpdateProductPayload & { id: string }) =>
-      apiClient.patch<ProductResponse>(`/products/${id}`, payload),
+      apiClient.patch<ProductResponse>(`/admin/products/${id}`, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "products"] })
     },
@@ -98,7 +98,7 @@ export function useDeleteProduct() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: string) => apiClient.delete<ProductResponse>(`/products/${id}`),
+    mutationFn: (id: string) => apiClient.delete<ProductResponse>(`/admin/products/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "products"] })
     },
@@ -112,7 +112,7 @@ export function useDeleteProduct() {
 export function useCategories() {
   return useQuery({
     queryKey: ["admin", "categories"],
-    queryFn: () => apiClient.get<CategoryResponse[]>("/categories"),
+    queryFn: () => apiClient.get<CategoryResponse[]>("/admin/categories"),
     staleTime: 1000 * 60 * 5,
   })
 }
@@ -128,7 +128,7 @@ export function useCreateCategory() {
 
   return useMutation({
     mutationFn: (payload: CreateCategoryPayload) =>
-      apiClient.post<CategoryResponse>("/categories", payload),
+      apiClient.post<CategoryResponse>("/admin/categories", payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "products"] })
       queryClient.invalidateQueries({ queryKey: ["admin", "categories"] })
@@ -143,7 +143,7 @@ export function useUpdateCategory() {
 
   return useMutation({
     mutationFn: ({ id, ...payload }: UpdateCategoryPayload & { id: string }) =>
-      apiClient.patch<CategoryResponse>(`/categories/${id}`, payload),
+      apiClient.patch<CategoryResponse>(`/admin/categories/${id}`, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "products"] })
       queryClient.invalidateQueries({ queryKey: ["admin", "categories"] })
@@ -155,7 +155,7 @@ export function useDeleteCategory() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/categories/${id}`),
+    mutationFn: (id: string) => apiClient.delete(`/admin/categories/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "products"] })
       queryClient.invalidateQueries({ queryKey: ["admin", "categories"] })
