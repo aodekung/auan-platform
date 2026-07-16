@@ -16,10 +16,8 @@
     "skipLibCheck": true,
     "paths": {
       "@auan/types": ["./packages/types/src"],
-      "@auan/utils": ["./packages/utils/src"],
       "@auan/ui": ["./packages/ui/src"],
-      "@auan/eslint-config": ["./packages/eslint-config"],
-      "@auan/tailwind-config": ["./packages/tailwind-config"]
+      "@auan/eslint-config": ["./packages/eslint-config"]
     }
   },
   "exclude": ["node_modules", "dist"]

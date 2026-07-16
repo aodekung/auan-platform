@@ -31,8 +31,8 @@ function DeleteConfirmDialog({
   isPending: boolean
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
-      <div className="w-full max-w-lg rounded-t-2xl bg-background p-6 shadow-lg">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center">
+      <div className="w-full max-w-lg rounded-t-2xl bg-background p-6 shadow-lg sm:rounded-2xl">
         <h3 className="text-lg font-semibold">ลบที่อยู่</h3>
         <p className="mt-2 text-sm text-muted-foreground">
           คุณต้องการลบที่อยู่{" "}

@@ -57,7 +57,7 @@ export function OrdersPage() {
           />
         ) : isLoading ? (
           <OrderListSkeleton />
-        ) : data && data.data.length > 0 ? (
+        ) : data && data.data && data.data.length > 0 ? (
           <div className="space-y-3">
             {data.data.map((order) => (
               <OrderCard key={order.id} order={order} />

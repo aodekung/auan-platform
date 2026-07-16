@@ -22,7 +22,7 @@ export function useOrders(filters: OrderFilters = {}) {
   if (filters.search) params.set("search", filters.search)
 
   const query = params.toString()
-  const endpoint = `/orders${query ? `?${query}` : ""}`
+  const endpoint = `/admin/orders${query ? `?${query}` : ""}`
 
   return useQuery({
     queryKey: ["admin", "orders", filters],
@@ -38,7 +38,7 @@ export function useOrders(filters: OrderFilters = {}) {
 export function useOrderDetail(orderId: string) {
   return useQuery({
     queryKey: ["admin", "orders", orderId],
-    queryFn: () => apiClient.get<OrderResponse>(`/orders/${orderId}`),
+    queryFn: () => apiClient.get<OrderResponse>(`/admin/orders/${orderId}`),
     enabled: !!orderId,
   })
 }
@@ -52,7 +52,7 @@ export function useUpdateOrderStatus() {
 
   return useMutation({
     mutationFn: async ({ orderId, status, reason }: { orderId: string; status: OrderStatus; reason?: string }) => {
-      return apiClient.patch<OrderResponse>(`/orders/${orderId}/status`, { status, reason })
+      return apiClient.patch<OrderResponse>(`/admin/orders/${orderId}/status`, { status, reason })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "orders"] })
@@ -70,7 +70,7 @@ export function useCancelOrder() {
 
   return useMutation({
     mutationFn: async ({ orderId, reason }: { orderId: string; reason?: string }) => {
-      return apiClient.patch<OrderResponse>(`/orders/${orderId}/cancel`, { reason })
+      return apiClient.patch<OrderResponse>(`/admin/orders/${orderId}/cancel`, { reason })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "orders"] })

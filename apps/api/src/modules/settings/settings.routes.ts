@@ -30,7 +30,7 @@
 
 import type { FastifyInstance } from "fastify"
 
-import { authenticate, authorize } from "../auth/auth.middleware.js"
+import { authenticateOrStaff, authorizeOwnerOrAdmin } from "../auth/auth.middleware.js"
 
 import {
   getAllSettingsHandler,
@@ -101,28 +101,28 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /admin/settings ───────────────────────────────────
   app.get("/api/v1/admin/settings", {
     schema: getAllSettingsRouteSchema,
-    preHandler: [authenticate, authorize("OWNER")],
+    preHandler: [authenticateOrStaff, authorizeOwnerOrAdmin("OWNER")],
     handler: getAllSettingsHandler,
   })
 
   // ── PUT /admin/settings ───────────────────────────────────
   app.put("/api/v1/admin/settings", {
     schema: updateAllSettingsRouteSchema,
-    preHandler: [authenticate, authorize("OWNER")],
+    preHandler: [authenticateOrStaff, authorizeOwnerOrAdmin("OWNER")],
     handler: updateAllSettingsHandler,
   })
 
   // ── POST /admin/settings/reset ───────────────────────────
   app.post("/api/v1/admin/settings/reset", {
     schema: resetSettingsRouteSchema,
-    preHandler: [authenticate, authorize("OWNER")],
+    preHandler: [authenticateOrStaff, authorizeOwnerOrAdmin("OWNER")],
     handler: resetSettingsHandler,
   })
 
   // ── PATCH /admin/settings/batch ─────────────────────────
   app.patch("/api/v1/admin/settings/batch", {
     schema: batchUpdateSettingsRouteSchema,
-    preHandler: [authenticate, authorize("OWNER")],
+    preHandler: [authenticateOrStaff, authorizeOwnerOrAdmin("OWNER")],
     handler: batchUpdateSettingsHandler,
   })
 
@@ -133,21 +133,21 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /admin/settings/store ─────────────────────────────
   app.get("/api/v1/admin/settings/store", {
     schema: getStoreSettingsRouteSchema,
-    preHandler: [authenticate, authorize("OWNER")],
+    preHandler: [authenticateOrStaff, authorizeOwnerOrAdmin("OWNER")],
     handler: getStoreSettingsHandler,
   })
 
   // ── PUT /admin/settings/store ──────────────────────────────
   app.put("/api/v1/admin/settings/store", {
     schema: updateStoreSettingsRouteSchema,
-    preHandler: [authenticate, authorize("OWNER")],
+    preHandler: [authenticateOrStaff, authorizeOwnerOrAdmin("OWNER")],
     handler: updateStoreSettingsHandler,
   })
 
   // ── POST /admin/settings/store/logo ────────────────────────
   app.post("/api/v1/admin/settings/store/logo", {
     schema: uploadStoreLogoRouteSchema,
-    preHandler: [authenticate, authorize("OWNER")],
+    preHandler: [authenticateOrStaff, authorizeOwnerOrAdmin("OWNER")],
     handler: uploadStoreLogoHandler,
   })
 
@@ -158,14 +158,14 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /admin/settings/business-hours ────────────────────
   app.get("/api/v1/admin/settings/business-hours", {
     schema: getBusinessHoursRouteSchema,
-    preHandler: [authenticate, authorize("OWNER")],
+    preHandler: [authenticateOrStaff, authorizeOwnerOrAdmin("OWNER")],
     handler: getBusinessHoursSettingsHandler,
   })
 
   // ── PUT /admin/settings/business-hours ────────────────────
   app.put("/api/v1/admin/settings/business-hours", {
     schema: updateBusinessHoursRouteSchema,
-    preHandler: [authenticate, authorize("OWNER")],
+    preHandler: [authenticateOrStaff, authorizeOwnerOrAdmin("OWNER")],
     handler: updateBusinessHoursSettingsHandler,
   })
 
@@ -176,21 +176,21 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /admin/settings/payment ────────────────────────────
   app.get("/api/v1/admin/settings/payment", {
     schema: getPaymentSettingsRouteSchema,
-    preHandler: [authenticate, authorize("OWNER")],
+    preHandler: [authenticateOrStaff, authorizeOwnerOrAdmin("OWNER")],
     handler: getPaymentSettingsHandler,
   })
 
   // ── PUT /admin/settings/payment ────────────────────────────
   app.put("/api/v1/admin/settings/payment", {
     schema: updatePaymentSettingsRouteSchema,
-    preHandler: [authenticate, authorize("OWNER")],
+    preHandler: [authenticateOrStaff, authorizeOwnerOrAdmin("OWNER")],
     handler: updatePaymentSettingsHandler,
   })
 
   // ── POST /admin/settings/payment/qrcode ──────────────────
   app.post("/api/v1/admin/settings/payment/qrcode", {
     schema: uploadPromptPayQrRouteSchema,
-    preHandler: [authenticate, authorize("OWNER")],
+    preHandler: [authenticateOrStaff, authorizeOwnerOrAdmin("OWNER")],
     handler: uploadPromptPayQrHandler,
   })
 
@@ -201,14 +201,14 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /admin/settings/delivery ──────────────────────────
   app.get("/api/v1/admin/settings/delivery", {
     schema: getDeliverySettingsRouteSchema,
-    preHandler: [authenticate, authorize("OWNER")],
+    preHandler: [authenticateOrStaff, authorizeOwnerOrAdmin("OWNER")],
     handler: getDeliverySettingsHandler,
   })
 
   // ── PUT /admin/settings/delivery ──────────────────────────
   app.put("/api/v1/admin/settings/delivery", {
     schema: updateDeliverySettingsRouteSchema,
-    preHandler: [authenticate, authorize("OWNER")],
+    preHandler: [authenticateOrStaff, authorizeOwnerOrAdmin("OWNER")],
     handler: updateDeliverySettingsHandler,
   })
 
@@ -219,14 +219,14 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /admin/settings/notifications ──────────────────────
   app.get("/api/v1/admin/settings/notifications", {
     schema: getNotificationSettingsRouteSchema,
-    preHandler: [authenticate, authorize("OWNER")],
+    preHandler: [authenticateOrStaff, authorizeOwnerOrAdmin("OWNER")],
     handler: getNotificationSettingsHandler,
   })
 
   // ── PUT /admin/settings/notifications ──────────────────────
   app.put("/api/v1/admin/settings/notifications", {
     schema: updateNotificationSettingsRouteSchema,
-    preHandler: [authenticate, authorize("OWNER")],
+    preHandler: [authenticateOrStaff, authorizeOwnerOrAdmin("OWNER")],
     handler: updateNotificationSettingsHandler,
   })
 
@@ -237,14 +237,14 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /admin/settings/system ───────────────────────────
   app.get("/api/v1/admin/settings/system", {
     schema: getSystemSettingsRouteSchema,
-    preHandler: [authenticate, authorize("OWNER")],
+    preHandler: [authenticateOrStaff, authorizeOwnerOrAdmin("OWNER")],
     handler: getSystemSettingsHandler,
   })
 
   // ── PUT /admin/settings/system ────────────────────────────
   app.put("/api/v1/admin/settings/system", {
     schema: updateSystemSettingsRouteSchema,
-    preHandler: [authenticate, authorize("OWNER")],
+    preHandler: [authenticateOrStaff, authorizeOwnerOrAdmin("OWNER")],
     handler: updateSystemSettingsHandler,
   })
 }

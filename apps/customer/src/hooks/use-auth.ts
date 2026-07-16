@@ -21,7 +21,7 @@ export function useLogin() {
         userId: data.customer.id,
         displayName: data.customer.displayName,
         pictureUrl: data.customer.pictureUrl,
-        phone: null,
+        phone: data.customer.phone,
       })
     },
   })
@@ -50,7 +50,7 @@ export function useSilentLogin() {
         userId: response.customer.id,
         displayName: response.customer.displayName,
         pictureUrl: response.customer.pictureUrl,
-        phone: null,
+        phone: response.customer.phone,
       })
       return true
     } catch {

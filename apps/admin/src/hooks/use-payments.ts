@@ -19,7 +19,7 @@ export function usePayments(filters: PaymentFilters = {}) {
   if (filters.status) params.set("status", filters.status)
 
   const query = params.toString()
-  const endpoint = `/payments${query ? `?${query}` : ""}`
+  const endpoint = `/admin/payments${query ? `?${query}` : ""}`
 
   return useQuery({
     queryKey: ["admin", "payments", filters],
@@ -35,7 +35,7 @@ export function usePayments(filters: PaymentFilters = {}) {
 export function usePayment(orderId: string) {
   return useQuery({
     queryKey: ["admin", "payments", orderId],
-    queryFn: () => apiClient.get<PaymentResponse>(`/payments/${orderId}`),
+    queryFn: () => apiClient.get<PaymentResponse>(`/admin/payments/${orderId}`),
     enabled: !!orderId,
   })
 }

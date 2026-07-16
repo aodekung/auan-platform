@@ -17,11 +17,13 @@ export function paginatedResponse<T>(
     totalItems: number
     totalPages: number
   },
+  message = "Success",
 ) {
   return {
     success: true as const,
     data,
     pagination,
+    message,
   }
 }
 

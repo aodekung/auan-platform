@@ -80,12 +80,26 @@ export function useUpdateStaff() {
 // Delete Staff (soft delete)
 // ─────────────────────────────────────────────
 
+export function useToggleStaffStatus() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      return apiClient.patch<StaffDetailResponse>(`/admin/staff/${id}/status`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "staff"] })
+    },
+  })
+}
+
+/** @deprecated Use useToggleStaffStatus instead — backend has no DELETE route */
 export function useDeleteStaff() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async (id: string) => {
-      return apiClient.delete<StaffDetailResponse>(`/admin/staff/${id}`)
+      return apiClient.patch<StaffDetailResponse>(`/admin/staff/${id}/status`)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "staff"] })

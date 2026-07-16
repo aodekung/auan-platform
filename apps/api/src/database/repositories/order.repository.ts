@@ -130,4 +130,42 @@ export class OrderRepository {
       total,
     }
   }
+
+  /**
+   * Find all orders (admin view, paginated, filterable).
+   * Returns orders with item count and customer sub-query.
+   */
+  async findAllPaginated(
+    options: {
+      status?: string
+      page: number
+      pageSize: number
+    },
+  ) {
+    const { status, page, pageSize } = options
+    const where: Prisma.OrderWhereInput = {}
+    if (status) {
+      where.orderStatus = status
+    }
+
+    const [orders, total] = await Promise.all([
+      this.delegate.findMany({
+        where,
+        include: {
+          _count: {
+            select: { items: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.delegate.count({ where }),
+    ])
+
+    return {
+      orders,
+      total,
+    }
+  }
 }

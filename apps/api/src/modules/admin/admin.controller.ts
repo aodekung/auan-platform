@@ -16,6 +16,7 @@ import { getDashboardSummary } from "./admin.dashboard.service.js"
 import { listStaff, getStaff, createStaff, updateStaff, toggleStaffStatus, resetStaffPassword } from "./admin.staff.service.js"
 import { listPayments } from "../payments/payments.service.js"
 import { updateOrderStatus } from "../orders/orders.service.js"
+import { OrderRepository } from "../../database/repositories/order.repository.js"
 import type { CreateStaffRequest, UpdateStaffRequest } from "./admin.types.js"
 
 // ─────────────────────────────────────────────────────────────
@@ -158,6 +159,31 @@ export async function paymentListHandler(request: FastifyRequest, reply: Fastify
 // ─────────────────────────────────────────────────────────────
 // Order Management
 // ─────────────────────────────────────────────────────────────
+
+const orderRepo = new OrderRepository()
+
+export async function orderListHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const query = request.query as unknown as { page?: number; pageSize?: number; status?: string; search?: string }
+  const { orders, total } = await orderRepo.findAllPaginated({
+    status: query.status,
+    page: query.page ?? 1,
+    pageSize: query.pageSize ?? 20,
+  })
+  void reply.code(200).send(paginatedResponse(
+    orders,
+    { page: query.page ?? 1, pageSize: query.pageSize ?? 20, totalItems: total, totalPages: Math.ceil(total / (query.pageSize ?? 20)) },
+  ))
+}
+
+export async function orderDetailHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { id } = request.params as { id: string }
+  const result = await orderRepo.findByIdWithDetails(id)
+  if (!result) {
+    void reply.code(404).send({ success: false, error: { code: "NOT_FOUND", message: "Order not found" } })
+    return
+  }
+  void reply.code(200).send(successResponse(result, "Order retrieved successfully"))
+}
 
 export async function updateOrderStatusHandler(
   request: FastifyRequest,

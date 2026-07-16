@@ -1,5 +1,7 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react"
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react"
 import type { StaffRole } from "@auan/types"
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api/v1"
 
 // ─────────────────────────────────────────────
 // Auth state
@@ -45,6 +47,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role: (localStorage.getItem(STORAGE_KEYS.role) as StaffRole) || null,
     }
   })
+
+  // Validate token on startup — if expired/invalid, log out
+  useEffect(() => {
+    const token = localStorage.getItem(STORAGE_KEYS.accessToken)
+    if (!token) return
+
+    const validateToken = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/auth/staff/me`, {
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        })
+        if (!response.ok) {
+          // Token expired or invalid — clear auth
+          Object.values(STORAGE_KEYS).forEach((key) => localStorage.removeItem(key))
+          setAuthState({
+            isAuthenticated: false,
+            staffId: null,
+            email: null,
+            displayName: null,
+            role: null,
+          })
+        }
+      } catch {
+        // Network error — keep current state (retry later)
+      }
+    }
+    void validateToken()
+  }, [])
 
   const login = useCallback(
     (

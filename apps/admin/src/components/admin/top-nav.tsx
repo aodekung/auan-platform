@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom"
 import { Menu, Bell, ChevronRight, User, LogOut } from "lucide-react"
 import { cn } from "@auan/ui"
 import { useAuth } from "@/providers/auth-provider"
+import { useLogout } from "@/hooks/use-auth"
 import { useUIStore } from "@/stores/ui.store"
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu"
 
@@ -36,7 +37,8 @@ function buildBreadcrumbs(pathname: string): { label: string; href: string }[] {
 
 export function TopNav() {
   const location = useLocation()
-  const { displayName, logout: clearAuth } = useAuth()
+  const { displayName } = useAuth()
+  const logoutMutation = useLogout()
   const { setSidebarOpen } = useUIStore()
   const crumbs = buildBreadcrumbs(location.pathname)
 
@@ -116,9 +118,7 @@ export function TopNav() {
             <DropdownMenu.Item
               className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none cursor-pointer hover:bg-accent hover:text-accent-foreground text-destructive"
               onClick={() => {
-                clearAuth()
-                localStorage.clear()
-                window.location.href = "/login"
+                logoutMutation.mutate()
               }}
             >
               <LogOut className="h-4 w-4" />

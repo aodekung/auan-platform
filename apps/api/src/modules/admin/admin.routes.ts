@@ -26,6 +26,8 @@ import {
   staffToggleStatusHandler,
   staffResetPasswordHandler,
   paymentListHandler,
+  orderListHandler,
+  orderDetailHandler,
   updateOrderStatusHandler,
   auditLogListHandler,
   systemActivityHandler,
@@ -146,6 +148,16 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
   // ═══════════════════════════════════════════════════════════════
   // ORDER MANAGEMENT
   // ═══════════════════════════════════════════════════════════════
+
+  app.get("/api/v1/admin/orders", {
+    preHandler: adminAuth,
+    handler: orderListHandler,
+  })
+
+  app.get("/api/v1/admin/orders/:id", {
+    preHandler: adminAuth,
+    handler: orderDetailHandler,
+  })
 
   app.patch("/api/v1/admin/orders/:id/status", {
     schema: updateOrderStatusRouteSchema,
