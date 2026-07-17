@@ -93,13 +93,15 @@ export function useToggleStaffStatus() {
   })
 }
 
-/** @deprecated Use useToggleStaffStatus instead — backend has no DELETE route */
+// ─────────────────────────────────────────────
+// Delete Staff (hard delete)
+// ─────────────────────────────────────────────
+
 export function useDeleteStaff() {
   const queryClient = useQueryClient()
-
   return useMutation({
-    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
-      return apiClient.patch<StaffDetailResponse>(`/admin/staff/${id}/status`, { isActive })
+    mutationFn: async (id: string) => {
+      return apiClient.delete<null>(`/admin/staff/${id}`)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "staff"] })

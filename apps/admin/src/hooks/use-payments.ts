@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api-client"
-import type { PaymentResponse, PaginatedResponse } from "@/api"
+import type { PaymentResponse } from "@/api"
 
 // ─────────────────────────────────────────────
 // Payment List (admin view)
@@ -23,7 +23,7 @@ export function usePayments(filters: PaymentFilters = {}) {
 
   return useQuery({
     queryKey: ["admin", "payments", filters],
-    queryFn: () => apiClient.get<PaginatedResponse<PaymentResponse>>(endpoint),
+    queryFn: () => apiClient.get<PaymentResponse[]>(endpoint),
     staleTime: 1000 * 60 * 2,
   })
 }

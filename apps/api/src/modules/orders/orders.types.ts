@@ -75,6 +75,7 @@ export interface OrderItemResponse {
   quantity: number
   unitPrice: string
   subtotal: string
+  imageUrl: string | null
   options: OrderItemOptionResponse[]
 }
 

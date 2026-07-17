@@ -23,6 +23,7 @@ import { randomBytes } from "node:crypto"
 import { STAFF_ROLE_HIERARCHY } from "@auan/types"
 
 import { AppError, ErrorCode } from "../../common/errors.js"
+import { prisma } from "../../database/client.js"
 import { AuditLogRepository } from "../../database/repositories/audit-log.repository.js"
 import { StaffRepository } from "../../database/repositories/staff.repository.js"
 import { hashPassword } from "../auth/staff-auth.utils.js"
@@ -233,6 +234,8 @@ export async function toggleStaffStatus(
       actorName,
       details: { email: staff.email, displayName: staff.displayName },
     })
+    // Return response using the staff we already fetched (softDelete changed DB state)
+    return mapToStaffDetail({ ...staff, isActive: false, deletedAt: new Date() })
   } else {
     await staffRepo.reactivate(id)
     await auditLogRepo.log({
@@ -243,9 +246,55 @@ export async function toggleStaffStatus(
       actorName,
       details: { email: staff.email, displayName: staff.displayName },
     })
+    return getStaff(id)
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Hard Delete
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Permanently delete a staff member from the database.
+ *
+ * Business rule: Cannot delete yourself.
+ * Business rule: Cannot delete staff with higher or equal role.
+ */
+export async function deleteStaff(
+  id: string,
+  actorId: string,
+  actorName: string,
+  actorRole: string,
+): Promise<void> {
+  const staff = await staffRepo.findById(id)
+  if (!staff) {
+    throw new AppError(404, ErrorCode.STAFF_NOT_FOUND, "Staff not found")
   }
 
-  return getStaff(id)
+  // Cannot delete yourself
+  if (id === actorId) {
+    throw new AppError(400, ErrorCode.CANNOT_MODIFY_SELF, "Cannot delete your own account")
+  }
+
+  // Cannot delete staff with higher or equal role
+  const actorLevel = STAFF_ROLE_HIERARCHY[actorRole as keyof typeof STAFF_ROLE_HIERARCHY] ?? 0
+  const targetLevel = STAFF_ROLE_HIERARCHY[staff.role as keyof typeof STAFF_ROLE_HIERARCHY] ?? 0
+  if (targetLevel >= actorLevel) {
+    throw new AppError(403, ErrorCode.INSUFFICIENT_PRIVILEGE, "Cannot delete staff with equal or higher privilege level")
+  }
+
+  // Hard delete
+  await prisma.staff.delete({ where: { id } })
+
+  // Audit log
+  await auditLogRepo.log({
+    action: "STAFF_DELETED",
+    entityType: "Staff",
+    entityId: id,
+    actorId,
+    actorName,
+    details: { email: staff.email, displayName: staff.displayName },
+  })
 }
 
 // ─────────────────────────────────────────────────────────────

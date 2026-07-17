@@ -1,12 +1,17 @@
 import { useState } from "react"
-import { useSearchParams, Link } from "react-router-dom"
-import { Search, ShoppingBag, Store as StoreIcon } from "lucide-react"
+import { useSearchParams, Link, useNavigate } from "react-router-dom"
+import { Search, ShoppingBag, Store as StoreIcon, ArrowLeft } from "lucide-react"
 
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { ProductCard } from "../components/product/product-card"
+import { ProductListItem } from "../components/product/product-list-item"
+import { ViewToggle } from "../components/product/view-toggle"
+import type { ViewMode } from "../components/product/view-toggle"
+import { QuickAddDialog } from "../components/product/quick-add-dialog"
 import { useCategories } from "../hooks/use-categories"
-import { useProducts } from "../hooks/use-products"
+import { useProducts, useProductOptions } from "../hooks/use-products"
+import { useAddToCart } from "../hooks/use-cart"
 import { useCartStore } from "../stores"
 import { ProductGridSkeleton, ErrorState, EmptyState } from "../components/feedback"
 import { ErrorBoundary } from "../components/feedback/error-boundary"
@@ -17,6 +22,9 @@ export function MenuPage() {
   const categoryParam = searchParams.get("category") || undefined
   const [search, setSearch] = useState("")
   const [selectedCategory, setSelectedCategory] = useState(categoryParam)
+  const [viewMode, setViewMode] = useState<ViewMode>("grid")
+  const [quickAddProduct, setQuickAddProduct] = useState<{ id: string; name: string; price: string; isAvailable: boolean } | null>(null)
+  const navigate = useNavigate()
 
   const cartItemCount = useCartStore((s) => s.getItemCount())
 
@@ -26,6 +34,8 @@ export function MenuPage() {
     search: search || undefined,
     pageSize: 50,
   })
+  const { data: quickAddOptions } = useProductOptions(quickAddProduct?.id ?? "")
+  const addToCart = useAddToCart()
 
   const handleCategoryClick = (categoryId: string | undefined) => {
     setSelectedCategory(categoryId)
@@ -41,20 +51,45 @@ export function MenuPage() {
     // Reset pagination when searching
   }
 
+  const handleQuickAdd = (product: { id: string; name: string; price: string; isAvailable: boolean }) => {
+    setQuickAddProduct(product)
+  }
+
+  const handleQuickAddConfirm = (data: { quantity: number; selectedOptions: Array<{ optionGroupId: string; optionId: string; optionName: string; additionalPrice: number }> }) => {
+    if (!quickAddProduct) return
+    addToCart.mutate({
+      productId: quickAddProduct.id,
+      quantity: data.quantity,
+      selectedOptions: data.selectedOptions,
+    }, {
+      onSuccess: () => {
+        setQuickAddProduct(null)
+      }
+    })
+  }
+
   return (
     <ErrorBoundary>
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">เมนูอาหาร</h1>
-          {cartItemCount > 0 && (
-            <Link to="/cart">
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <ShoppingBag className="h-4 w-4" />
-                {cartItemCount}
-              </Button>
-            </Link>
-          )}
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => navigate(-1)}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <h1 className="text-xl font-bold">เมนูอาหาร</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <ViewToggle value={viewMode} onChange={setViewMode} />
+            {cartItemCount > 0 && (
+              <Link to="/cart">
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <ShoppingBag className="h-4 w-4" />
+                  {cartItemCount}
+                </Button>
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* Search */}
@@ -106,20 +141,38 @@ export function MenuPage() {
           <ErrorState message="ไม่สามารถโหลดสินค้าได้" onRetry={() => void refetch()} />
         ) : isLoading ? (
           <ProductGridSkeleton />
-        ) : productsData && productsData.data.length > 0 ? (
-          <div className="grid grid-cols-2 gap-3">
-            {productsData.data.map((product) => (
-              <ProductCard
-                key={product.id}
-                id={product.id}
-                name={product.name}
-                imageUrl={product.imageUrl}
-                price={product.price}
-                isAvailable={product.isAvailable}
-                description={product.description}
-              />
-            ))}
-          </div>
+        ) : productsData && productsData.length > 0 ? (
+          viewMode === "grid" ? (
+            <div className="grid grid-cols-2 gap-3">
+              {productsData.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  id={product.id}
+                  name={product.name}
+                  imageUrl={product.imageUrl}
+                  price={product.price}
+                  quantity={product.quantity}
+                  isAvailable={product.isAvailable}
+                  description={product.description}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {productsData.map((product) => (
+                <ProductListItem
+                  key={product.id}
+                  id={product.id}
+                  name={product.name}
+                  imageUrl={product.imageUrl}
+                  price={product.price}
+                  description={product.description}
+                  isAvailable={product.isAvailable}
+                  onQuickAdd={() => handleQuickAdd(product)}
+                />
+              ))}
+            </div>
+          )
         ) : (
           <EmptyState
             icon={<StoreIcon className="h-10 w-10" />}
@@ -132,6 +185,16 @@ export function MenuPage() {
             }
           />
         )}
+
+        {/* Quick Add Dialog */}
+        <QuickAddDialog
+          open={!!quickAddProduct}
+          onClose={() => setQuickAddProduct(null)}
+          product={quickAddProduct}
+          optionGroups={quickAddOptions}
+          onAdd={handleQuickAddConfirm}
+          isPending={addToCart.isPending}
+        />
       </div>
     </ErrorBoundary>
   )

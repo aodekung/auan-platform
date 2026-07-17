@@ -37,6 +37,12 @@ const FILTER_TABS: FilterTab[] = [
 // Helpers
 // ─────────────────────────────────────────────
 
+function getUploadUrl(relativePath: string): string {
+  if (!relativePath) return ""
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api/v1"
+  return `${baseUrl}/uploads/${relativePath}`
+}
+
 function formatThaiDate(dateString: string): string {
   return new Intl.DateTimeFormat("th-TH", {
     year: "numeric",
@@ -163,7 +169,7 @@ export function PaymentsPage() {
         render: (row) =>
           row.slipImage ? (
             <img
-              src={row.slipImage}
+              src={getUploadUrl(row.slipImage)}
               alt="Payment slip"
               className="h-10 w-10 rounded-md border object-cover"
             />
@@ -267,7 +273,7 @@ export function PaymentsPage() {
       </div>
 
       {/* Table */}
-      {data.data.length === 0 ? (
+      {data.length === 0 ? (
         <EmptyState
           icon={<Inbox className="h-12 w-12" />}
           title="ไม่มีรายการชำระเงิน"
@@ -276,9 +282,7 @@ export function PaymentsPage() {
       ) : (
         <DataTable
           columns={columns}
-          data={data.data}
-          pagination={data.pagination}
-          onPageChange={setPage}
+          data={data}
           emptyMessage="ไม่พบรายการชำระเงิน"
         />
       )}

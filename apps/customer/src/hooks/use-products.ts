@@ -1,7 +1,12 @@
 import { useQuery } from "@tanstack/react-query"
 
 import { apiClient } from "../lib/api-client"
-import type { OptionGroupResponse, PaginatedResponse, ProductResponse } from "../api"
+import type { OptionGroupResponse, ProductResponse } from "../api"
+
+// Note: apiClient unwraps ApiResponse<T> → returns data field directly.
+// For paginated endpoints, backend returns { data: T[], pagination, message }
+// so apiClient returns T[] (the items array).
+// TypeScript type reflects what apiClient actually returns at runtime.
 
 export function useProducts(filters?: {
   categoryId?: string
@@ -20,7 +25,7 @@ export function useProducts(filters?: {
 
   return useQuery({
     queryKey: ["products", filters],
-    queryFn: () => apiClient.get<PaginatedResponse<ProductResponse>>(endpoint),
+    queryFn: () => apiClient.get<ProductResponse[]>(endpoint),
     staleTime: 1000 * 60 * 5,
   })
 }

@@ -6,6 +6,7 @@ import {
   CreditCard,
   Package,
   FolderTree,
+  Layers,
   Users,
   Bell,
   Settings,
@@ -19,6 +20,7 @@ import {
 import { cn } from "@auan/ui"
 import { useAuth } from "@/providers/auth-provider"
 import { useUIStore } from "@/stores/ui.store"
+import { useStoreSettings } from "@/hooks/use-settings"
 import type { NavItem } from "@/types/admin.types"
 
 const NAV_ITEMS: NavItem[] = [
@@ -27,18 +29,25 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Kitchen Board", href: "/kitchen", icon: ChefHat },
   { label: "Payments", href: "/payments", icon: CreditCard },
   { label: "Products", href: "/products", icon: Package },
-  { label: "Categories", href: "/categories", icon: FolderTree, disabled: true },
-  { label: "Customers", href: "/customers", icon: Users, disabled: true },
-  { label: "Notifications", href: "/notifications", icon: Bell, disabled: true },
+  { label: "ตัวเลือกพิเศษ", href: "/option-templates", icon: Layers },
+  { label: "Categories", href: "/categories", icon: FolderTree },
+  { label: "Customers", href: "/customers", icon: Users },
+  { label: "Notifications", href: "/notifications", icon: Bell },
   { label: "Settings", href: "/settings", icon: Settings },
   { label: "Staff", href: "/staff", icon: UserCog },
-  { label: "Audit Logs", href: "/audit-logs", icon: FileText, disabled: true },
+  { label: "Audit Logs", href: "/audit-logs", icon: FileText },
 ]
 
 export function Sidebar() {
   const location = useLocation()
   const { displayName, role } = useAuth()
   const { isSidebarCollapsed, toggleSidebarCollapsed, setSidebarOpen } = useUIStore()
+  const { data: storeInfo } = useStoreSettings()
+
+  const storeName = storeInfo?.name || "Auan-Auan"
+  const logoUrl = storeInfo?.logo
+    ? `${import.meta.env.VITE_API_BASE_URL || "/api/v1"}/uploads/${storeInfo.logo}`
+    : ""
 
   function handleNavClick() {
     // Close sidebar on mobile after clicking a nav item
@@ -54,10 +63,18 @@ export function Sidebar() {
     >
       {/* Logo */}
       <div className="flex h-14 items-center gap-2 border-b px-4">
-        <Flame className="h-6 w-6 shrink-0 text-primary" />
+        {logoUrl ? (
+          <img
+            src={logoUrl}
+            alt={storeName}
+            className="h-6 w-6 shrink-0 rounded object-cover"
+          />
+        ) : (
+          <Flame className="h-6 w-6 shrink-0 text-primary" />
+        )}
         {!isSidebarCollapsed && (
           <span className="text-sm font-semibold text-foreground truncate">
-            Auan-Auan
+            {storeName}
           </span>
         )}
       </div>

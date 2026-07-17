@@ -9,6 +9,7 @@
 import type { FastifyRequest, FastifyReply } from "fastify"
 
 import { successResponse } from "../../common/response.js"
+import { AppError, ErrorCode } from "../../common/errors.js"
 import type { JwtPayload } from "../auth/auth.types.js"
 
 import type { CreatePaymentBody, UploadSlipBody, RejectPaymentBody } from "./payments.schema.js"
@@ -31,6 +32,20 @@ function getCustomerId(request: FastifyRequest): string {
 
 function getUserId(request: FastifyRequest): string {
   return (request.user as unknown as JwtPayload).userId
+}
+
+function getVerifierId(request: FastifyRequest): string {
+  const user = (request as unknown as Record<string, unknown>).user as
+    | { userId: string; lineUserId: string; role: string }
+    | undefined
+  if (user?.userId) return user.userId
+
+  const staff = (request as unknown as Record<string, unknown>).staff as
+    | { staffId: string; email: string; role: string }
+    | undefined
+  if (staff?.staffId) return staff.staffId
+
+  throw new AppError(401, ErrorCode.AUTHENTICATION_ERROR, "Not authenticated")
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -112,7 +127,7 @@ export async function verifyPaymentHandler(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply,
 ): Promise<void> {
-  const verifierId = getUserId(request)
+  const verifierId = getVerifierId(request)
   const { id } = request.params
   const payment = await verifyPayment(id, verifierId)
 

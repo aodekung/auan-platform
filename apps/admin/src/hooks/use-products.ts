@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api-client"
-import type { ProductResponse, CategoryResponse, PaginatedResponse } from "@/api"
+import { toast } from "sonner"
+import type { ProductResponse, CategoryResponse } from "@/api"
 
 // ─────────────────────────────────────────────
 // Product List
@@ -27,7 +28,7 @@ export function useProducts(filters: ProductFilters = {}) {
 
   return useQuery({
     queryKey: ["admin", "products", filters],
-    queryFn: () => apiClient.get<PaginatedResponse<ProductResponse>>(endpoint),
+    queryFn: () => apiClient.get<ProductResponse[]>(endpoint),
     staleTime: 1000 * 60 * 2,
   })
 }
@@ -53,9 +54,10 @@ interface CreateProductPayload {
   name: string
   nameEn?: string
   description?: string
-  price: string
+  price: number
   status?: string
   displayOrder?: number
+  quantity?: number
   isAvailable?: boolean
   sku?: string
 }
@@ -101,6 +103,45 @@ export function useDeleteProduct() {
     mutationFn: (id: string) => apiClient.delete<ProductResponse>(`/admin/products/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "products"] })
+    },
+  })
+}
+
+// ─────────────────────────────────────────────
+// Upload Product Image
+// ─────────────────────────────────────────────
+
+export function useUploadProductImage() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, file }: { id: string; file: File }) => {
+      const formData = new FormData()
+      formData.append("file", file)
+      const token = localStorage.getItem("admin_access_token")
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api/v1"
+      const res = await fetch(`${baseUrl}/admin/products/${id}/image`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      })
+      if (res.status === 401) {
+        localStorage.removeItem("admin_access_token")
+        localStorage.removeItem("admin_session_token")
+        const err = new Error("Unauthorized")
+        err.name = "UnauthorizedError"
+        throw err
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error?.message || "Upload failed")
+      }
+      const json = await res.json()
+      return json.data
+    },
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "products"] })
+      queryClient.invalidateQueries({ queryKey: ["admin", "products", id] })
     },
   })
 }

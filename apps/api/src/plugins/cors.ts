@@ -8,7 +8,12 @@ export async function registerCors(app: FastifyInstance) {
     "http://localhost:5173",
     "http://localhost:3000",
     "http://localhost:5174",
+    "http://localhost:5175",
+    "http://localhost:5176",
   ]
+
+  // Allow all ngrok URLs (*.ngrok-free.app / *.ngrok-free.dev / *.ngrok.dev / *.ngrok.io)
+  const ngrokPattern = /https:\/\/[a-z0-9-]+\.ngrok(-free)?\.(app|dev|io)$/
 
   const productionOrigins: string[] = []
 
@@ -29,12 +34,22 @@ export async function registerCors(app: FastifyInstance) {
   const allowedOrigins =
     env.NODE_ENV === "development"
       ? devOrigins
-      : productionOrigins.length > 2
-        ? productionOrigins
-        : true // allow all origins as fallback
+      : productionOrigins
 
   await app.register(fastifyCors, {
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      // Allow all ngrok URLs in any environment
+      if (origin && ngrokPattern.test(origin)) {
+        return callback(null, true)
+      }
+      // Allow listed origins
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true)
+      }
+      return callback(new Error("Not allowed by CORS"), false)
+      // NOTE: if you see this error, check the origin that's being rejected
+      // console.error("[CORS] Blocked origin:", origin) // uncomment to debug
+    },
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,

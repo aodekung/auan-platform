@@ -38,9 +38,29 @@ interface ButtonProps
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, isLoading = false, children, disabled, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button"
+    // When asChild is true, Radix Slot requires exactly ONE React element child.
+    // If isLoading, we render a wrapper <span> so there's always a single child.
+    if (asChild) {
+      return (
+        <Slot
+          className={cn(buttonVariants({ variant, size, className }))}
+          ref={ref}
+          {...props}
+        >
+          {isLoading ? (
+            <span className="inline-flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>{children as ReactNode}</span>
+            </span>
+          ) : (
+            children as ReactNode
+          )}
+        </Slot>
+      )
+    }
+
     return (
-      <Comp
+      <button
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         disabled={disabled || isLoading}
@@ -48,7 +68,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       >
         {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
         {children as ReactNode}
-      </Comp>
+      </button>
     )
   },
 )

@@ -48,7 +48,7 @@ export function useLogout() {
     },
     onSettled: () => {
       clearAuth()
-      window.location.href = "/admin/login"
+      window.location.replace("/admin/login")
     },
   })
 }

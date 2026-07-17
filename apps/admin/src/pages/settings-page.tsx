@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useForm } from "react-hook-form"
 import {
   Settings,
@@ -10,11 +10,17 @@ import {
   Save,
   Loader2,
   AlertCircle,
+  Upload,
+  ImageIcon,
+  X,
 } from "lucide-react"
+import { toast } from "sonner"
 import {
   useSettingsByCategory,
   useBusinessHours,
   useUpdateSettings,
+  useUploadStoreLogo,
+  useUploadPromptPayQr,
 } from "@/hooks/use-settings"
 import type { SettingItem } from "@/hooks/use-settings"
 import { PageHeader } from "@/components/layout/page-header"
@@ -120,6 +126,14 @@ function getDefault(key: string, map: Map<string, string>): string {
   return map.get(key) ?? ""
 }
 
+/** Build the full URL for an uploaded file relative path. */
+function getUploadUrl(relativePath: string): string {
+  if (!relativePath) return ""
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api/v1"
+  // relativePath like "store/abc.png" → served at /uploads/store/abc.png
+  return `${baseUrl}/uploads/${relativePath}`
+}
+
 // ─────────────────────────────────────────────
 // Sub-components: Settings Card Skeleton
 // ─────────────────────────────────────────────
@@ -143,12 +157,113 @@ function SettingsCardSkeleton({ fieldCount }: { fieldCount: number }) {
 }
 
 // ─────────────────────────────────────────────
+// Reusable Image Upload Section
+// ─────────────────────────────────────────────
+
+function ImageUploadSection({
+  label,
+  value,
+  uploadMutation,
+}: {
+  label: string
+  value: string
+  uploadMutation: ReturnType<typeof useUploadStoreLogo>
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const previewUrl = value ? getUploadUrl(value) : ""
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.match(/^image\/(png|jpeg|webp)$/)) {
+      toast.error("รองรับเฉพาะไฟล์ PNG, JPEG, WebP")
+      return
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("ไฟล์ขนาดเกิน 5MB")
+      return
+    }
+
+    uploadMutation.mutate(file, {
+      onSuccess: () => {
+        toast.success(`อัพโหลด${label}สำเร็จ`)
+      },
+      onError: (err) => {
+        toast.error(err?.message ?? `ไม่สามารถอัพโหลด${label}ได้`)
+      },
+    })
+
+    // Reset input so same file can be selected again
+    e.target.value = ""
+  }
+
+  return (
+    <div className="space-y-2">
+      <label className="text-sm font-medium text-foreground">{label}</label>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+      {previewUrl ? (
+        <div className="relative inline-block">
+          <img
+            src={previewUrl}
+            alt={label}
+            className="h-24 w-24 rounded-lg border object-cover"
+          />
+          {uploadMutation.isPending && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50">
+              <Loader2 className="h-6 w-6 animate-spin text-white" />
+            </div>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-2 block"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadMutation.isPending}
+          >
+            <Upload className="h-3.5 w-3.5" />
+            เปลี่ยนรูป
+          </Button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploadMutation.isPending}
+          className="flex h-24 w-24 items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/50 transition-colors hover:border-primary hover:bg-muted"
+        >
+          {uploadMutation.isPending ? (
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          ) : (
+            <div className="flex flex-col items-center gap-1 text-muted-foreground">
+              <ImageIcon className="h-6 w-6" />
+              <span className="text-xs">อัพโหลด</span>
+            </div>
+          )}
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
 // Card 1: Store Info
 // ─────────────────────────────────────────────
 
 function StoreInfoCard() {
   const { data, isLoading, isError, error } = useSettingsByCategory("store")
   const updateSettings = useUpdateSettings()
+  const uploadLogo = useUploadStoreLogo()
   const map = data ? toMap(data) : new Map<string, string>()
 
   const { register, handleSubmit } = useForm<Record<string, string>>({
@@ -193,6 +308,11 @@ function StoreInfoCard() {
       </CardHeader>
       <CardContent>
         <form data-form="store" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <ImageUploadSection
+            label="โลโก้ร้าน"
+            value={getDefault("store.logo", map)}
+            uploadMutation={uploadLogo}
+          />
           {STORE_FIELDS.map((field) => (
             <Input
               key={field.key}
@@ -363,6 +483,7 @@ function BusinessHoursCard() {
 function PaymentCard() {
   const { data, isLoading, isError, error } = useSettingsByCategory("payment")
   const updateSettings = useUpdateSettings()
+  const uploadQr = useUploadPromptPayQr()
   const map = data ? toMap(data) : new Map<string, string>()
 
   const { register, handleSubmit } = useForm<Record<string, string>>({
@@ -416,6 +537,11 @@ function PaymentCard() {
               {...register(field.key)}
             />
           ))}
+          <ImageUploadSection
+            label="QR Code PromptPay"
+            value={getDefault("payment.promptpay_qr", map)}
+            uploadMutation={uploadQr}
+          />
         </form>
       </CardContent>
       <CardFooter className="justify-end">

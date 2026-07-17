@@ -107,8 +107,13 @@ class ApiClient {
   ): Promise<T> {
     const token = getAccessToken()
     const headers: Record<string, string> = {
-      "Content-Type": "application/json",
       ...((options.headers as Record<string, string>) || {}),
+    }
+
+    // Only set Content-Type for requests with a body (sending Content-Type with an
+    // empty body causes Fastify to reject the request)
+    if (options.body) {
+      headers["Content-Type"] = "application/json"
     }
 
     if (token) {
@@ -126,9 +131,12 @@ class ApiClient {
       if (newToken) {
         // Retry original request with new token
         const retryHeaders: Record<string, string> = {
-          "Content-Type": "application/json",
           ...((options.headers as Record<string, string>) || {}),
           Authorization: `Bearer ${newToken}`,
+        }
+
+        if (options.body) {
+          retryHeaders["Content-Type"] = "application/json"
         }
 
         const retryResponse = await fetch(`${this.baseUrl}${endpoint}`, {
@@ -137,8 +145,14 @@ class ApiClient {
         })
 
         if (!retryResponse.ok) {
-          const error: ApiError = await retryResponse.json()
-          throw new Error(error.error?.message || "An error occurred")
+          let errorMessage = "An error occurred"
+          try {
+            const error: ApiError = await retryResponse.json()
+            errorMessage = error.error?.message || errorMessage
+          } catch {
+            // Response body is not JSON — use default message
+          }
+          throw new Error(errorMessage)
         }
 
         const data: ApiResponse<T> = await retryResponse.json()
@@ -151,8 +165,14 @@ class ApiClient {
     }
 
     if (!response.ok) {
-      const error: ApiError = await response.json()
-      throw new Error(error.error?.message || "An error occurred")
+      let errorMessage = "An error occurred"
+      try {
+        const error: ApiError = await response.json()
+        errorMessage = error.error?.message || errorMessage
+      } catch {
+        // Response body is not JSON — use default message
+      }
+      throw new Error(errorMessage)
     }
 
     const data: ApiResponse<T> = await response.json()

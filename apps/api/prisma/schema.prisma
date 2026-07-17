@@ -110,12 +110,14 @@ model Product {
   price        Decimal       @db.Decimal(10, 2)
   status       ProductStatus @default(ACTIVE)
   displayOrder Int
+  quantity     Int           @default(0) // Stock quantity; 0 = unlimited (no stock tracking)
   isAvailable  Boolean       @default(true)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
   category     Category            @relation(fields: [categoryId], references: [id])
   optionGroups ProductOptionGroup[]
+  optionAssignments ProductOptionGroupAssignment[]
   cartItems    CartItem[]
   orderItems   OrderItem[]
   favorites    Favorite[]
@@ -161,6 +163,84 @@ model ProductOption {
 
   @@index([optionGroupId])
   @@map("product_options")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GLOBAL OPTION TEMPLATES
+// ═══════════════════════════════════════════════════════════════
+
+/// Global option group template (e.g., "ระดับความเผ็ด", "ขนาด").
+/// Reusable across multiple Products. Managed centrally like Grab/Lineman merchant.
+model OptionGroupTemplate {
+  id           String   @id @default(uuid())
+  name         String
+  required     Boolean  @default(true)
+  multiple     Boolean  @default(false)
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  options    OptionTemplate[]
+  assignments ProductOptionGroupAssignment[]
+
+  @@map("option_group_templates")
+}
+
+/// Individual option within a global template group (e.g., "เผ็ดน้อย", "ใหญ่").
+model OptionTemplate {
+  id              String  @id @default(uuid())
+  optionGroupId   String
+  name            String
+  additionalPrice Decimal @db.Decimal(10, 2) @default(0)
+  displayOrder    Int     @default(0)
+  isActive        Boolean @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  optionGroup OptionGroupTemplate @relation(fields: [optionGroupId], references: [id], onDelete: Cascade)
+  overrides   ProductPriceOverride[]
+
+  @@unique([optionGroupId, name])
+  @@index([optionGroupId])
+  @@map("option_templates")
+}
+
+/// Links a global option group template to a specific Product.
+/// Allows the same template to be reused across many products.
+model ProductOptionGroupAssignment {
+  id               String  @id @default(uuid())
+  productId        String
+  optionGroupId    String
+  displayOrder     Int     @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  product      Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  optionGroup  OptionGroupTemplate  @relation(fields: [optionGroupId], references: [id], onDelete: Cascade)
+  priceOverrides ProductPriceOverride[]
+
+  @@unique([productId, optionGroupId])
+  @@index([productId])
+  @@index([optionGroupId])
+  @@map("product_option_group_assignments")
+}
+
+/// Per-product price override for an option within an assigned group.
+/// If no override exists, the template's default price is used.
+model ProductPriceOverride {
+  id              String  @id @default(uuid())
+  assignmentId    String
+  optionId        String
+  additionalPrice Decimal @db.Decimal(10, 2)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  assignment ProductOptionGroupAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  option     OptionTemplate          @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, optionId])
+  @@index([assignmentId])
+  @@map("product_price_overrides")
 }
 
 // ═══════════════════════════════════════════════════════════════

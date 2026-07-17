@@ -10,13 +10,15 @@ import type { FastifyRequest, FastifyReply } from "fastify"
 
 import { paginatedResponse, successResponse } from "../../common/response.js"
 
-import type { CreateProductBody, ProductQuery, UpdateProductBody } from "./products.schema.js"
+import type { AdminProductQuery, CreateProductBody, ProductQuery, UpdateProductBody } from "./products.schema.js"
 import {
   createProduct,
   deleteProduct,
   getAllProducts,
+  getAdminProducts,
   getProductById,
   updateProduct,
+  uploadProductImage,
 } from "./products.service.js"
 
 // ─────────────────────────────────────────────────────────────
@@ -98,5 +100,45 @@ export async function deleteProductHandler(
 
   void reply.code(200).send(
     successResponse(null, "Product disabled successfully"),
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// GET /api/v1/admin/products
+// ─────────────────────────────────────────────────────────────
+
+export async function listAdminProductsHandler(
+  request: FastifyRequest<{ Querystring: AdminProductQuery }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const query = request.query
+  const { products, pagination } = await getAdminProducts(query)
+
+  void reply.code(200).send(
+    paginatedResponse(products, pagination),
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/v1/admin/products/:id/image
+// ─────────────────────────────────────────────────────────────
+
+export async function uploadProductImageHandler(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const { id } = request.params
+  const data = await request.file()
+  if (!data) {
+    void reply.code(400).send({
+      success: false,
+      error: { code: "NO_FILE", message: "No file uploaded" },
+    })
+    return
+  }
+
+  const product = await uploadProductImage(id, data)
+  void reply.code(200).send(
+    successResponse(product, "Product image uploaded successfully"),
   )
 }

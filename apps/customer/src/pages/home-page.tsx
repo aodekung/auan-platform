@@ -11,6 +11,12 @@ import { ProductGridSkeleton, ErrorState } from "../components/feedback"
 import { ErrorBoundary } from "../components/feedback/error-boundary"
 import { cn } from "../lib/utils"
 
+function getUploadUrl(relativePath: string): string {
+  if (!relativePath) return ""
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api/v1"
+  return `${baseUrl}/uploads/${relativePath}`
+}
+
 export function HomePage() {
   const { data: categories, isLoading: catLoading, error: catError, refetch: refetchCat } = useCategories()
   const { data: productsData, isLoading: prodLoading, error: prodError, refetch: refetchProd } = useProducts({ pageSize: 8 })
@@ -67,7 +73,7 @@ export function HomePage() {
           ) : catLoading ? (
             <div className="flex gap-3 overflow-x-auto pb-2">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-20 w-20 shrink-0 animate-pulse rounded-xl bg-muted" />
+                <div key={i} className="h-16 w-16 shrink-0 animate-pulse rounded-xl bg-muted" />
               ))}
             </div>
           ) : categories && categories.length > 0 ? (
@@ -78,7 +84,7 @@ export function HomePage() {
                   <Link
                     key={category.id}
                     to={`/menu?category=${category.id}`}
-                    className="flex h-20 w-20 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border bg-card text-center transition-colors hover:border-primary hover:bg-primary/5"
+                    className="flex h-16 w-16 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border bg-card text-center transition-colors hover:border-primary hover:bg-primary/5"
                   >
                     <span className="text-2xl">🍗</span>
                     <span className="line-clamp-1 text-xs font-medium">{category.name}</span>
@@ -103,15 +109,15 @@ export function HomePage() {
             <ErrorState message="ไม่สามารถโหลดสินค้าได้" onRetry={() => void refetchProd()} />
           ) : prodLoading ? (
             <ProductGridSkeleton />
-          ) : productsData && productsData.data.length > 0 ? (
+          ) : productsData && productsData.length > 0 ? (
             <div className="grid grid-cols-2 gap-3">
-              {productsData.data.map((product) => (
+              {productsData.map((product) => (
                 <Link key={product.id} to={`/product/${product.id}`}>
                   <Card className="overflow-hidden transition-shadow hover:shadow-md">
                     <div className="aspect-square w-full overflow-hidden bg-muted">
                       {product.imageUrl ? (
                         <img
-                          src={product.imageUrl}
+                          src={getUploadUrl(product.imageUrl)}
                           alt={product.name}
                           className="h-full w-full object-cover"
                           loading="lazy"
@@ -122,8 +128,11 @@ export function HomePage() {
                         </div>
                       )}
                     </div>
-                    <CardContent className="p-2.5">
+                    <CardContent className="p-2">
                       <p className="line-clamp-1 text-sm font-medium">{product.name}</p>
+                      {!product.isAvailable && (
+                        <span className="text-xs text-destructive">สินค้าหมดชั่วคราว</span>
+                      )}
                       <p className={cn(
                         "text-sm font-semibold",
                         !product.isAvailable && "text-muted-foreground line-through",

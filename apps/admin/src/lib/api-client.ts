@@ -20,8 +20,13 @@ class ApiClient {
   ): Promise<T> {
     const token = this.getToken()
     const headers: Record<string, string> = {
-      "Content-Type": "application/json",
       ...((options.headers as Record<string, string>) || {}),
+    }
+
+    // Only set Content-Type when there is a body to send.
+    // Sending Content-Type with an empty body causes Fastify to reject the request.
+    if (options.body) {
+      headers["Content-Type"] = "application/json"
     }
 
     if (token) {
@@ -34,6 +39,15 @@ class ApiClient {
     })
 
     if (!response.ok) {
+      if (response.status === 401) {
+        // Token expired or invalid — clear tokens
+        localStorage.removeItem("admin_access_token")
+        localStorage.removeItem("admin_session_token")
+        // Throw a custom error name so TanStack Query retry can detect it
+        const err = new Error("Unauthorized")
+        err.name = "UnauthorizedError"
+        throw err
+      }
       let errorMessage = "An error occurred"
       try {
         const error: ApiError = await response.json()

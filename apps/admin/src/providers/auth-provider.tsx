@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react"
 import type { StaffRole } from "@auan/types"
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api/v1"
@@ -48,6 +48,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   })
 
+  // Track localStorage token to detect external clears (e.g. by api-client 401 handler)
+  const tokenRef = useRef(authState.isAuthenticated ? localStorage.getItem(STORAGE_KEYS.accessToken) : null)
+
+  // Sync auth state when localStorage token is cleared externally
+  useEffect(() => {
+    const currentToken = localStorage.getItem(STORAGE_KEYS.accessToken)
+    if (tokenRef.current && !currentToken && authState.isAuthenticated) {
+      // Token was removed externally — sync React state
+      tokenRef.current = null
+      setAuthState({
+        isAuthenticated: false,
+        staffId: null,
+        email: null,
+        displayName: null,
+        role: null,
+      })
+    } else {
+      tokenRef.current = currentToken
+    }
+  }, [authState.isAuthenticated])
+
   // Validate token on startup — if expired/invalid, log out
   useEffect(() => {
     const token = localStorage.getItem(STORAGE_KEYS.accessToken)
@@ -61,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!response.ok) {
           // Token expired or invalid — clear auth
           Object.values(STORAGE_KEYS).forEach((key) => localStorage.removeItem(key))
+          tokenRef.current = null
           setAuthState({
             isAuthenticated: false,
             staffId: null,
@@ -88,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(STORAGE_KEYS.email, staff.email)
       localStorage.setItem(STORAGE_KEYS.displayName, staff.displayName)
       localStorage.setItem(STORAGE_KEYS.role, staff.role)
+      tokenRef.current = accessToken
 
       setAuthState({
         isAuthenticated: true,
@@ -102,6 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     Object.values(STORAGE_KEYS).forEach((key) => localStorage.removeItem(key))
+    tokenRef.current = null
     setAuthState({
       isAuthenticated: false,
       staffId: null,

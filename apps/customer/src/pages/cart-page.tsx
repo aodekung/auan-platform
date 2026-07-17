@@ -7,6 +7,7 @@ import { CartItem } from "../components/cart/cart-item"
 import { CartSummary } from "../components/cart/cart-summary"
 import { EmptyState, ErrorState, CartSkeleton } from "../components/feedback"
 import { ErrorBoundary } from "../components/feedback/error-boundary"
+import { SubPageHeader } from "../components/layout/sub-page-header"
 
 export function CartPage() {
   const { data: cart, isLoading, error, refetch } = useCart()
@@ -25,7 +26,7 @@ export function CartPage() {
   return (
     <ErrorBoundary>
       <div className="space-y-4">
-        <h1 className="text-xl font-bold">🛒 ตะกร้าสินค้า</h1>
+        <SubPageHeader title="🛒 ตะกร้าสินค้า" />
 
         {error ? (
           <ErrorState

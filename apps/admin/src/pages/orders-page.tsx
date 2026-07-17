@@ -189,7 +189,7 @@ export function OrdersPage() {
       />
 
       {/* Table */}
-      {data.data.length === 0 ? (
+      {data.length === 0 ? (
         <EmptyState
           icon={<Inbox className="h-12 w-12" />}
           title="ไม่มีออเดอร์"
@@ -198,9 +198,7 @@ export function OrdersPage() {
       ) : (
         <DataTable
           columns={columns}
-          data={data.data}
-          pagination={data.pagination}
-          onPageChange={setPage}
+          data={data}
           emptyMessage="ไม่พบออเดอร์"
         />
       )}

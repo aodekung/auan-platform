@@ -1,5 +1,5 @@
 import { Copy, Check } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 
 import { Button } from "../ui/button"
 
@@ -11,11 +11,23 @@ interface PromptPayQRProps {
 
 export function PromptPayQR({ qrImageUrl, promptPayNumber, amount }: PromptPayQRProps) {
   const [copied, setCopied] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [])
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(promptPayNumber)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    try {
+      await navigator.clipboard.writeText(promptPayNumber)
+      setCopied(true)
+      timerRef.current = setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Clipboard API may fail in insecure contexts
+    }
   }
 
   return (

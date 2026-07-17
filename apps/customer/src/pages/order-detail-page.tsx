@@ -12,6 +12,12 @@ import { ErrorBoundary } from "../components/feedback/error-boundary"
 import { ORDER_STATUS } from "@auan/types"
 import type { OrderStatus } from "@auan/types"
 
+function getUploadUrl(relativePath: string): string {
+  if (!relativePath) return ""
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api/v1"
+  return `${baseUrl}/uploads/${relativePath}`
+}
+
 /** Statuses that allow customer cancellation */
 const CANCELLABLE_STATUSES: OrderStatus[] = [
   ORDER_STATUS.PENDING,
@@ -95,17 +101,30 @@ export function OrderDetailPage() {
             <h2 className="mb-3 text-sm font-semibold">รายการสินค้า</h2>
             <div className="space-y-2">
               {order.items.map((item) => (
-                <div key={item.id} className="flex justify-between text-sm">
-                  <div className="flex-1">
-                    <span className="text-muted-foreground">{item.quantity}×</span>{" "}
-                    {item.productName}
+                <div key={item.id} className="flex items-center gap-2.5 text-sm">
+                  {item.imageUrl ? (
+                    <img
+                      src={getUploadUrl(item.imageUrl)}
+                      alt={item.productName}
+                      className="h-10 w-10 shrink-0 rounded-md object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-xs">
+                      🍢
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1">
+                      <span className="text-muted-foreground">{item.quantity}×</span>{" "}
+                      <span className="truncate">{item.productName}</span>
+                    </div>
                     {item.options.length > 0 && (
-                      <p className="text-xs text-muted-foreground">
+                      <p className="truncate text-xs text-muted-foreground">
                         ({item.options.map((o) => o.optionName).join(", ")})
                       </p>
                     )}
                   </div>
-                  <span className="font-medium">฿{Number(item.subtotal).toLocaleString()}</span>
+                  <span className="shrink-0 font-medium">฿{Number(item.subtotal).toLocaleString()}</span>
                 </div>
               ))}
             </div>

@@ -15,19 +15,14 @@
  * Per 100-security-rules.md: public APIs expose only customer-required info.
  */
 
-import { randomUUID } from "node:crypto"
-import { writeFile, mkdir } from "node:fs/promises"
-import { join, extname } from "node:path"
-
 import type { MultipartFile } from "@fastify/multipart"
 
 import { AppError, ErrorCode } from "../../common/errors.js"
-import { env } from "../../config/env.js"
+import { saveUploadedFile } from "../../common/upload.js"
 import { AuditLogRepository } from "../../database/repositories/audit-log.repository.js"
 import { SettingRepository } from "../../database/repositories/setting.repository.js"
 
 import {
-  ALLOWED_IMAGE_MIMETYPES,
   DAYS_OF_WEEK,
   DEFAULT_SETTINGS,
   SETTINGS_CACHE_TTL_MS,
@@ -141,6 +136,8 @@ function mapToPublicStore(map: Map<string, string>): PublicStoreResponse {
     phone: getSettingValue(map, SETTING_KEYS.STORE.PHONE),
     address: getSettingValue(map, SETTING_KEYS.STORE.ADDRESS),
     isOpen,
+    promptpayQr: getSettingValue(map, SETTING_KEYS.PAYMENT.PROMPTPAY_QR),
+    promptpayNumber: getSettingValue(map, SETTING_KEYS.PAYMENT.PROMPTPAY_NUMBER),
   }
 }
 
@@ -719,43 +716,6 @@ export async function resetSettings(
 // ─────────────────────────────────────────────────────────────
 // Admin (Owner-only) — File Upload
 // ─────────────────────────────────────────────────────────────
-
-/**
- * Validate and save an uploaded image file.
- * Returns the relative path of the saved file.
- */
-async function saveUploadedFile(
-  file: MultipartFile,
-  subdirectory: string,
-): Promise<string> {
-  const mimetype = file.mimetype
-  if (!mimetype || !ALLOWED_IMAGE_MIMETYPES.includes(mimetype as typeof ALLOWED_IMAGE_MIMETYPES[number])) {
-    throw new AppError(
-      400,
-      ErrorCode.INVALID_FILE_TYPE,
-      `Invalid file type. Allowed: ${ALLOWED_IMAGE_MIMETYPES.join(", ")}`,
-    )
-  }
-
-  const fileBuffer = await file.toBuffer()
-  if (fileBuffer.length > env.UPLOAD_MAX_SIZE) {
-    throw new AppError(
-      413,
-      ErrorCode.FILE_TOO_LARGE,
-      `File too large. Maximum size: ${env.UPLOAD_MAX_SIZE / 1_048_576}MB`,
-    )
-  }
-
-  const ext = extname(file.filename) || ".png"
-  const filename = `${randomUUID()}${ext}`
-  const uploadDir = join(env.UPLOAD_PATH, subdirectory)
-
-  await mkdir(uploadDir, { recursive: true })
-  const filepath = join(uploadDir, filename)
-  await writeFile(filepath, fileBuffer)
-
-  return `${subdirectory}/${filename}`
-}
 
 /**
  * Upload store logo image.

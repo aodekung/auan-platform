@@ -13,7 +13,7 @@ import { successResponse, paginatedResponse } from "../../common/response.js"
 import { listAuditLogs, getSystemActivity } from "./admin.audit.service.js"
 import { listCustomers, getCustomer, getCustomerOrders, toggleCustomerStatus } from "./admin.customer.service.js"
 import { getDashboardSummary } from "./admin.dashboard.service.js"
-import { listStaff, getStaff, createStaff, updateStaff, toggleStaffStatus, resetStaffPassword } from "./admin.staff.service.js"
+import { listStaff, getStaff, createStaff, updateStaff, toggleStaffStatus, deleteStaff, resetStaffPassword } from "./admin.staff.service.js"
 import { listPayments, getPaymentByOrderIdAdmin } from "../payments/payments.service.js"
 import { updateOrderStatus } from "../orders/orders.service.js"
 import { OrderRepository } from "../../database/repositories/order.repository.js"
@@ -139,6 +139,13 @@ export async function staffResetPasswordHandler(request: FastifyRequest, reply: 
   const { actorId, actorName } = getActorInfo(request)
   const result = await resetStaffPassword(id, actorId, actorName)
   void reply.code(200).send(successResponse(result, "Password reset successfully"))
+}
+
+export async function deleteStaffHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { id } = request.params as { id: string }
+  const { actorId, actorName, actorRole } = getActorInfo(request)
+  await deleteStaff(id, actorId, actorName, actorRole)
+  void reply.code(200).send({ success: true, data: null, message: "Staff deleted successfully" })
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { useState, useCallback, type FormEvent } from "react"
+import { useState, useCallback, useRef, type FormEvent } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -10,17 +10,24 @@ import {
   PowerOff,
   Package,
   Flame,
+  Upload,
+  ImageIcon,
+  Loader2,
+  X,
 } from "lucide-react"
+import { toast } from "sonner"
 import {
   useProducts,
   useCategories,
   useCreateProduct,
   useUpdateProduct,
   useDeleteProduct,
+  useUploadProductImage,
   useCreateCategory,
   useUpdateCategory,
   useDeleteCategory,
 } from "@/hooks/use-products"
+import { OptionAssigner } from "@/components/product/option-assigner"
 import { PageHeader } from "@/components/layout/page-header"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -50,10 +57,11 @@ const productSchema = z.object({
   name: z.string().min(1, "ชื่อสินค้าจำเป็นต้องกรอก"),
   nameEn: z.string().optional(),
   categoryId: z.string().min(1, "หมวดหมู่จำเป็นต้องเลือก"),
-  price: z.string().min(1, "ราคาจำเป็นต้องกรอก"),
+  price: z.coerce.number({ invalid_type_error: "ราคาต้องเป็นตัวเลข" }).min(0, "ราคาต้องไม่ติดลบ"),
   sku: z.string().optional(),
   description: z.string().optional(),
   displayOrder: z.coerce.number().int().min(0).optional(),
+  quantity: z.coerce.number().int().min(0).optional(),
   status: z.enum(["ACTIVE", "DISABLED"]).optional(),
   isAvailable: z.boolean().optional(),
 })
@@ -187,7 +195,7 @@ function ProductsTab() {
       className: "w-12",
       render: (_product, rowIndex) => (
         <span className="text-muted-foreground">
-          {((productsQuery.data?.pagination.page ?? 1) - 1) * 20 + rowIndex + 1}
+          {rowIndex + 1}
         </span>
       ),
     },
@@ -195,21 +203,26 @@ function ProductsTab() {
       key: "image",
       header: "รูป",
       className: "w-16",
-      render: (product) => (
-        <div className="h-10 w-10 overflow-hidden rounded-md bg-muted">
-          {product.imageUrl ? (
-            <img
-              src={product.imageUrl}
-              alt={product.name}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center">
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </div>
-          )}
-        </div>
-      ),
+      render: (product) => {
+        const fullUrl = product.imageUrl
+          ? `${import.meta.env.VITE_API_BASE_URL || "/api/v1"}/uploads/${product.imageUrl}`
+          : ""
+        return (
+          <div className="h-10 w-10 overflow-hidden rounded-md bg-muted">
+            {fullUrl ? (
+              <img
+                src={fullUrl}
+                alt={product.name}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center">
+                <Package className="h-4 w-4 text-muted-foreground" />
+              </div>
+            )}
+          </div>
+        )
+      },
     },
     {
       key: "name",
@@ -239,6 +252,21 @@ function ProductsTab() {
       render: (product) => (
         <span className="font-medium tabular-nums">
           ฿{Number(product.price).toLocaleString()}
+        </span>
+      ),
+    },
+    {
+      key: "quantity",
+      header: "จำนวน",
+      className: "text-center",
+      render: (product) => (
+        <span className={cn(
+          "tabular-nums",
+          product.quantity > 0
+            ? "text-foreground"
+            : "text-muted-foreground",
+        )}>
+          {product.quantity > 0 ? product.quantity : "∞"}
         </span>
       ),
     },
@@ -359,9 +387,7 @@ function ProductsTab() {
       {/* Table */}
       <DataTable<ProductResponse>
         columns={columns}
-        data={productsQuery.data?.data ?? []}
-        pagination={productsQuery.data?.pagination}
-        onPageChange={setPage}
+        data={productsQuery.data ?? []}
         isLoading={productsQuery.isLoading}
         emptyMessage="ไม่พบสินค้า"
       />
@@ -376,9 +402,10 @@ function ProductsTab() {
           if (editingProduct) {
             await updateProduct.mutateAsync({ id: editingProduct.id, ...data })
           } else {
-            await createProduct.mutateAsync(data)
+            const result = await createProduct.mutateAsync(data)
+            // Return ID so dialog can chain image upload
+            return (result as { id?: string })?.id
           }
-          setProductDialogOpen(false)
         }}
         isSubmitting={createProduct.isPending || updateProduct.isPending}
       />
@@ -388,7 +415,7 @@ function ProductsTab() {
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         title="ลบสินค้า"
-        description={`คุณต้องการลบ "${deletingProduct?.name}" หรือไม่? สินค้าจะถูกปิดใช้งาน`}
+        description={`คุณต้องการลบ "${deletingProduct?.name}" หรือไม่? สินค้าจะถูกลบถาวร`}
         action={
           <Button
             variant="destructive"
@@ -417,7 +444,7 @@ interface ProductFormDialogProps {
   onOpenChange: (open: boolean) => void
   editingProduct: ProductResponse | null
   categories: CategoryResponse[]
-  onSubmit: (data: ProductFormData) => Promise<void>
+  onSubmit: (data: ProductFormData) => Promise<string | void>
   isSubmitting: boolean
 }
 
@@ -441,10 +468,11 @@ function ProductFormDialog({
           name: editingProduct.name,
           nameEn: editingProduct.nameEn ?? "",
           categoryId: editingProduct.categoryId,
-          price: editingProduct.price,
+          price: Number(editingProduct.price),
           sku: editingProduct.sku ?? "",
           description: editingProduct.description ?? "",
           displayOrder: editingProduct.displayOrder,
+          quantity: editingProduct.quantity ?? 0,
           status: editingProduct.status as "ACTIVE" | "DISABLED",
           isAvailable: editingProduct.isAvailable,
         }
@@ -452,10 +480,11 @@ function ProductFormDialog({
           name: "",
           nameEn: "",
           categoryId: "",
-          price: "",
+          price: 0,
           sku: "",
           description: "",
           displayOrder: 0,
+          quantity: 0,
           status: "ACTIVE" as const,
           isAvailable: true,
         },
@@ -464,20 +493,81 @@ function ProductFormDialog({
           name: editingProduct.name,
           nameEn: editingProduct.nameEn ?? "",
           categoryId: editingProduct.categoryId,
-          price: editingProduct.price,
+          price: Number(editingProduct.price),
           sku: editingProduct.sku ?? "",
           description: editingProduct.description ?? "",
           displayOrder: editingProduct.displayOrder,
+          quantity: editingProduct.quantity ?? 0,
           status: editingProduct.status as "ACTIVE" | "DISABLED",
           isAvailable: editingProduct.isAvailable,
         }
       : undefined,
   })
 
+  const uploadImage = useUploadProductImage()
+  const imageFileRef = useRef<HTMLInputElement>(null)
+  const [pendingImage, setPendingImage] = useState<File | null>(null)
+
   const handleFormSubmit = async (data: ProductFormData) => {
-    await onSubmit(data)
+    const productId = await onSubmit(data)
+    // If create mode returned an ID and there's a pending image, upload it
+    if (productId && pendingImage) {
+      uploadImage.mutate(
+        { id: productId, file: pendingImage },
+        {
+          onSuccess: () => {
+            toast.success("อัพโหลดรูปสินค้าสำเร็จ")
+            reset()
+            onOpenChange(false)
+          },
+          onError: (err) => {
+            toast.error(err?.message ?? "ไม่สามารถอัพโหลดรูปได้")
+            reset()
+            onOpenChange(false)
+          },
+        },
+      )
+      setPendingImage(null)
+      return
+    }
     reset()
+    onOpenChange(false)
   }
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.match(/^image\/(png|jpeg|webp)$/)) {
+      toast.error("รองรับเฉพาะไฟล์ PNG, JPEG, WebP")
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("ไฟล์ขนาดเกิน 5MB")
+      return
+    }
+
+    if (editingProduct) {
+      // Edit mode: upload immediately
+      uploadImage.mutate(
+        { id: editingProduct.id, file },
+        {
+          onSuccess: () => toast.success("อัพโหลดรูปสินค้าสำเร็จ"),
+          onError: (err) => toast.error(err?.message ?? "ไม่สามารถอัพโหลดรูปได้"),
+        },
+      )
+    } else {
+      // Create mode: store file to upload after product is created
+      setPendingImage(file)
+      toast.info("รูปภาพจะถูกอัพโหลดหลังสร้างสินค้า")
+    }
+    e.target.value = ""
+  }
+
+  // Compute image preview URL
+  const imageUrl = editingProduct?.imageUrl
+    ? `${import.meta.env.VITE_API_BASE_URL || "/api/v1"}/uploads/${editingProduct.imageUrl}`
+    : ""
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -492,6 +582,70 @@ function ProductFormDialog({
               : "กรอกรายละเอียดสินค้าด้านล่าง"}
           </DialogDescription>
         </DialogHeader>
+
+        {/* Product Image Upload */}
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-foreground">รูปสินค้า</label>
+          <input
+            ref={imageFileRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={handleImageChange}
+            disabled={uploadImage.isPending}
+          />
+          {imageUrl ? (
+            <div className="relative inline-block">
+              <img
+                src={imageUrl}
+                alt={editingProduct?.name}
+                className="h-28 w-28 rounded-lg border object-cover"
+              />
+              {uploadImage.isPending && (
+                <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50">
+                  <Loader2 className="h-6 w-6 animate-spin text-white" />
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => imageFileRef.current?.click()}
+                disabled={uploadImage.isPending}
+                className="flex h-28 w-28 items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/50 transition-colors hover:border-primary hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {uploadImage.isPending ? (
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                ) : (
+                  <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                    <ImageIcon className="h-6 w-6" />
+                    <span className="text-xs">{pendingImage ? "✓ เลือกรูปแล้ว" : "เพิ่มรูป"}</span>
+                  </div>
+                )}
+              </button>
+              {pendingImage && !editingProduct && (
+                <span className="text-xs text-primary">
+                  รูปจะถูกอัพโหลดหลังบันทึก
+                </span>
+              )}
+            </div>
+          )}
+          {imageUrl && editingProduct && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => imageFileRef.current?.click()}
+              disabled={uploadImage.isPending}
+            >
+              <Upload className="h-3.5 w-3.5" />
+              เปลี่ยนรูป
+            </Button>
+          )}
+        </div>
+
+        <Separator />
 
         <form
           onSubmit={(e: FormEvent) => {
@@ -542,11 +696,20 @@ function ProductFormDialog({
 
           <Input
             label="ราคา (฿) *"
-            type="text"
+            type="number"
             inputMode="decimal"
             placeholder="0"
             error={errors.price?.message}
             {...register("price")}
+          />
+
+          <Input
+            label="จำนวนสินค้า (0 = ไม่จำกัด)"
+            type="number"
+            inputMode="numeric"
+            placeholder="0"
+            error={errors.quantity?.message}
+            {...register("quantity")}
           />
 
           <Input
@@ -618,6 +781,13 @@ function ProductFormDialog({
               แสดงให้ลูกค้าเห็น
             </label>
           </div>
+
+          <Separator />
+
+          {/* Option Groups — assign global templates to this product */}
+          {editingProduct && (
+            <OptionAssigner productId={editingProduct.id} />
+          )}
 
           <DialogFooter>
             <Button

@@ -47,7 +47,8 @@ import {
 } from "./settings.service.js"
 
 // ─────────────────────────────────────────────────────────────
-// Helper — extract authenticated user info from JWT
+// Helper — extract authenticated actor info from JWT
+// Supports both Owner (LINE JWT on request.user) and Staff JWT (request.staff)
 // ─────────────────────────────────────────────────────────────
 
 interface JwtPayload {
@@ -57,8 +58,25 @@ interface JwtPayload {
   displayName?: string
 }
 
-function getUser(request: FastifyRequest): JwtPayload {
-  return request.user as unknown as JwtPayload
+interface StaffJwtPayload {
+  staffId: string
+  email: string
+  role: string
+}
+
+function getUser(request: FastifyRequest): { userId: string; displayName: string } {
+  // Try Owner (LINE JWT)
+  const user = (request as unknown as Record<string, unknown>).user as JwtPayload | undefined
+  if (user?.userId) {
+    return { userId: user.userId, displayName: user.displayName ?? "Owner" }
+  }
+  // Try Staff JWT
+  const staff = (request as unknown as Record<string, unknown>).staff as StaffJwtPayload | undefined
+  if (staff?.staffId) {
+    return { userId: staff.staffId, displayName: staff.email }
+  }
+  // Fallback (should never reach here if auth middleware runs correctly)
+  return { userId: "unknown", displayName: "unknown" }
 }
 
 // ═══════════════════════════════════════════════════════════════

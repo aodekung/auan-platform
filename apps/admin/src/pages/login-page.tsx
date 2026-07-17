@@ -3,6 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Flame } from "lucide-react"
 import { useLogin } from "@/hooks/use-auth"
+import { useStoreSettings } from "@/hooks/use-settings"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 
@@ -21,6 +22,13 @@ type LoginFormData = z.infer<typeof loginSchema>
 
 export function LoginPage() {
   const login = useLogin()
+  const { data: storeInfo } = useStoreSettings()
+
+  // Extract store branding
+  const storeName = storeInfo?.name || "Auan-Auan"
+  const logoUrl = storeInfo?.logo
+    ? `${import.meta.env.VITE_API_BASE_URL || "/api/v1"}/uploads/${storeInfo.logo}`
+    : ""
 
   const {
     register,
@@ -28,7 +36,7 @@ export function LoginPage() {
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: "Ex. admin@admin.com", password: "Ex.12345678" },
+    defaultValues: { email: "", password: "" },
   })
 
   function onSubmit(data: LoginFormData) {
@@ -40,8 +48,16 @@ export function LoginPage() {
       <div className="w-full max-w-sm space-y-8">
         {/* Logo */}
         <div className="flex flex-col items-center gap-2">
-          <Flame className="h-12 w-12 text-primary" />
-          <h1 className="text-2xl font-bold text-foreground">Auan-Auan Admin</h1>
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt={storeName}
+              className="h-12 w-12 rounded object-cover"
+            />
+          ) : (
+            <Flame className="h-12 w-12 text-primary" />
+          )}
+          <h1 className="text-2xl font-bold text-foreground">{storeName} Admin</h1>
           <p className="text-sm text-muted-foreground">เข้าสู่ระบบเพื่อจัดการร้าน</p>
         </div>
 
@@ -80,7 +96,7 @@ export function LoginPage() {
         </form>
 
         <p className="text-center text-xs text-muted-foreground">
-          Auan-Auan Mala Tod — Admin Dashboard
+          {storeName} — Admin Dashboard
         </p>
       </div>
     </div>

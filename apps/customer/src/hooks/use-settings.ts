@@ -41,8 +41,10 @@ export function useIsStoreOpen() {
   }
 
   // Check current time against today's schedule
+  // Use Asia/Bangkok timezone for store hours
   const now = new Date()
-  const dayOfWeek = now.toLocaleDateString("en-US", { weekday: "long" }).toLowerCase() // "monday", "tuesday", etc.
+  const bangkokTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bangkok" }))
+  const dayOfWeek = bangkokTime.toLocaleDateString("en-US", { weekday: "long", timeZone: "Asia/Bangkok" }).toLowerCase()
   const todaySchedule = businessHours.schedule.find((s) => s.day === dayOfWeek)
 
   if (!todaySchedule) {
@@ -52,7 +54,7 @@ export function useIsStoreOpen() {
   const [openH, openM] = todaySchedule.open.split(":").map(Number)
   const [closeH, closeM] = todaySchedule.close.split(":").map(Number)
 
-  const currentMinutes = now.getHours() * 60 + now.getMinutes()
+  const currentMinutes = bangkokTime.getHours() * 60 + bangkokTime.getMinutes()
   const openMinutes = openH * 60 + openM
   const closeMinutes = closeH * 60 + closeM
 

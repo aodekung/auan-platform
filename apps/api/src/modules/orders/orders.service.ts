@@ -76,6 +76,7 @@ function mapOrderItem(item: {
   quantity: number
   unitPrice: Decimal | number
   subtotal: Decimal | number
+  product?: { imageUrl: string | null } | null
   options: Array<{
     id: string
     optionName: string
@@ -89,6 +90,7 @@ function mapOrderItem(item: {
     quantity: item.quantity,
     unitPrice: item.unitPrice.toString(),
     subtotal: item.subtotal.toString(),
+    imageUrl: item.product?.imageUrl ?? null,
     options: item.options.map(mapOrderItemOption),
   }
 }

@@ -124,9 +124,9 @@ export function KitchenPage() {
   // Merge and sort orders
   const orders = useMemo(() => {
     const all = [
-      ...(queued.data?.data ?? []),
-      ...(preparing.data?.data ?? []),
-      ...(ready.data?.data ?? []),
+      ...(queued.data ?? []),
+      ...(preparing.data ?? []),
+      ...(ready.data ?? []),
     ]
     return all.sort((a, b) => {
       const priorityA = STATUS_PRIORITY[a.orderStatus as OrderStatus] ?? 99

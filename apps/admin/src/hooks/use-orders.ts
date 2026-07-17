@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api-client"
-import type { OrderResponse, OrderListItemResponse, PaginatedResponse } from "@/api"
+import type { OrderResponse, OrderListItemResponse } from "@/api"
 import type { OrderStatus } from "@auan/types"
 
 // ─────────────────────────────────────────────
@@ -26,7 +26,7 @@ export function useOrders(filters: OrderFilters = {}) {
 
   return useQuery({
     queryKey: ["admin", "orders", filters],
-    queryFn: () => apiClient.get<PaginatedResponse<OrderListItemResponse>>(endpoint),
+    queryFn: () => apiClient.get<OrderListItemResponse[]>(endpoint),
     staleTime: 1000 * 60 * 2,
   })
 }

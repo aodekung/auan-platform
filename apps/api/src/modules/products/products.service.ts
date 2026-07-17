@@ -19,15 +19,22 @@
  * All database access goes through the repository layer.
  */
 
+import { unlink } from "node:fs/promises"
+import { join } from "node:path"
+
 import type { Prisma } from "@prisma/client"
 import type { Decimal } from "@prisma/client/runtime/library"
 
+import type { MultipartFile } from "@fastify/multipart"
+
 import { AppError, ErrorCode } from "../../common/errors.js"
+import { env } from "../../config/env.js"
+import { saveUploadedFile } from "../../common/upload.js"
 import { prisma } from "../../database/client.js"
 import { CategoryRepository } from "../../database/repositories/category.repository.js"
 import type { ProductQueryOptions } from "../../database/repositories/product.repository.js"
 import { ProductRepository } from "../../database/repositories/product.repository.js"
-import { getOptionGroupsByProductId } from "../product-options/product-options.service.js"
+import { getOptionGroupsByProductId } from "../option-templates/option-template.service.js"
 
 import type {
   ProductDetailResponse,
@@ -61,6 +68,7 @@ function mapToListResponse(product: {
   price: Decimal | number
   status: string
   displayOrder: number
+  quantity: number
   isAvailable: boolean
   createdAt: Date
   updatedAt: Date
@@ -76,6 +84,7 @@ function mapToListResponse(product: {
     price: product.price.toString(),
     status: product.status,
     displayOrder: product.displayOrder,
+    quantity: product.quantity,
     isAvailable: product.isAvailable,
     createdAt: product.createdAt.toISOString(),
     updatedAt: product.updatedAt.toISOString(),
@@ -98,6 +107,7 @@ function mapToDetailResponse(
     price: Decimal | number
     status: string
     displayOrder: number
+    quantity: number
     isAvailable: boolean
     createdAt: Date
     updatedAt: Date
@@ -138,6 +148,44 @@ export async function getAllProducts(
   }
 
   const { data, total } = await productRepo.findActive(options)
+
+  const page = query.page ?? 1
+  const pageSize = query.pageSize ?? 20
+
+  return {
+    products: data.map(mapToListResponse),
+    pagination: {
+      page,
+      pageSize,
+      totalItems: total,
+      totalPages: Math.ceil(total / pageSize),
+    },
+  }
+}
+
+/**
+ * Get all products (admin) with filtering, sorting, and pagination.
+ *
+ * Unlike the public endpoint, this does NOT hardcode status=ACTIVE.
+ * Admins can filter by status or see all products.
+ */
+export async function getAdminProducts(
+  query: ProductQueryParams & { status?: string },
+): Promise<{
+  products: ProductResponse[]
+  pagination: { page: number; pageSize: number; totalItems: number; totalPages: number }
+}> {
+  const options: ProductQueryOptions = {
+    categoryId: query.categoryId,
+    search: query.search,
+    sort: query.sort,
+    order: query.order,
+    page: query.page,
+    pageSize: query.pageSize,
+    status: query.status,
+  }
+
+  const { data, total } = await productRepo.findMany(options)
 
   const page = query.page ?? 1
   const pageSize = query.pageSize ?? 20
@@ -200,6 +248,7 @@ export async function createProduct(
     imageUrl?: string
     price: number
     displayOrder?: number
+    quantity?: number
     isAvailable?: boolean
     status?: string
   },
@@ -226,6 +275,22 @@ export async function createProduct(
     }
   }
 
+  // Auto-assign displayOrder if not provided
+  let displayOrder = data.displayOrder ?? 0
+  if (data.displayOrder === undefined) {
+    const { data: categoryProducts } = await productRepo.findMany({
+      categoryId: data.categoryId,
+      page: 1,
+      pageSize: 1,
+      sort: "displayOrder",
+      order: "desc",
+    })
+    const maxOrder = categoryProducts.length > 0
+      ? (categoryProducts[0].displayOrder ?? 0)
+      : 0
+    displayOrder = maxOrder + 1
+  }
+
   // Create with raw FK (UncheckedCreateInput)
   const createData: Prisma.ProductUncheckedCreateInput = {
     categoryId: data.categoryId,
@@ -235,7 +300,8 @@ export async function createProduct(
     description: data.description ?? null,
     imageUrl: data.imageUrl ?? null,
     price: data.price,
-    displayOrder: data.displayOrder ?? 0,
+    displayOrder,
+    quantity: data.quantity ?? 0,
     isAvailable: data.isAvailable ?? true,
     status: (data.status as "ACTIVE" | "DISABLED") ?? "ACTIVE",
   }
@@ -266,6 +332,7 @@ export async function updateProduct(
     imageUrl?: string | null
     price?: number
     displayOrder?: number
+    quantity?: number
     isAvailable?: boolean
     status?: string
   },
@@ -313,6 +380,7 @@ export async function updateProduct(
     ...(data.imageUrl !== undefined && { imageUrl: data.imageUrl }),
     ...(data.price !== undefined && { price: data.price }),
     ...(data.displayOrder !== undefined && { displayOrder: data.displayOrder }),
+    ...(data.quantity !== undefined && { quantity: data.quantity }),
     ...(data.isAvailable !== undefined && { isAvailable: data.isAvailable }),
     ...(data.status !== undefined && { status: data.status as "ACTIVE" | "DISABLED" }),
   }
@@ -325,14 +393,14 @@ export async function updateProduct(
 }
 
 /**
- * Delete (disable) a product.
+ * Hard-delete a product and all its related data.
  *
- * Per 173-database-design.md: soft delete NOT implemented in MVP.
- * Sets status to DISABLED and isAvailable to false.
+ * Deletes ProductOptions, ProductOptionGroups, then the Product itself
+ * within a transaction. Also removes the product image file from disk.
  */
 export async function deleteProduct(id: string): Promise<void> {
-  // Check existence
-  const existing = await productRepo.exists(id)
+  // Check existence and get imageUrl for cleanup
+  const existing = await productRepo.findById(id)
   if (!existing) {
     throw new AppError(
       404,
@@ -341,9 +409,60 @@ export async function deleteProduct(id: string): Promise<void> {
     )
   }
 
-  // Disable instead of hard delete
-  await productRepo.update(id, {
-    status: "DISABLED",
-    isAvailable: false,
+  // Delete related data then the product in a transaction
+  await prisma.$transaction(async (tx) => {
+    // Delete options within each option group for this product
+    await tx.productOption.deleteMany({
+      where: {
+        optionGroup: { productId: id },
+      },
+    })
+
+    // Delete option groups for this product
+    await tx.productOptionGroup.deleteMany({
+      where: { productId: id },
+    })
+
+    // Hard-delete the product
+    await tx.product.delete({ where: { id } })
   })
+
+  // Remove image file from disk if it exists
+  if (existing.imageUrl) {
+    try {
+      const imagePath = join(env.UPLOAD_PATH, existing.imageUrl)
+      await unlink(imagePath)
+    } catch {
+      // File may already be missing — ignore cleanup errors
+    }
+  }
+}
+
+/**
+ * Upload product image.
+ *
+ * Saves the image to disk and updates the product's imageUrl.
+ */
+export async function uploadProductImage(
+  id: string,
+  file: MultipartFile,
+): Promise<ProductDetailResponse> {
+  const existing = await productRepo.findById(id)
+  if (!existing) {
+    throw new AppError(
+      404,
+      ErrorCode.PRODUCT_NOT_FOUND,
+      "Product not found",
+    )
+  }
+
+  const relativePath = await saveUploadedFile(file, "products")
+
+  await productRepo.update(id, {
+    imageUrl: relativePath,
+  })
+
+  const updated = await productRepo.findById(id)
+  const [optionGroups] = await Promise.all([getOptionGroupsByProductId(id)])
+  return mapToDetailResponse(updated!, optionGroups)
 }

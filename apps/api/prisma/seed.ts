@@ -197,7 +197,11 @@ const DEMO_ADDRESS = {
 // ---------------------------------------------------------------------------
 
 const OWNER_EMAIL = process.env.OWNER_EMAIL || 'owner@auanauan.com';
-const OWNER_PASSWORD = process.env.OWNER_PASSWORD || 'Owner1234!';
+if (!process.env.OWNER_PASSWORD) {
+  console.error('FATAL: OWNER_PASSWORD environment variable is required for seeding');
+  process.exit(1);
+}
+const OWNER_PASSWORD = process.env.OWNER_PASSWORD;
 const BCRYPT_ROUNDS = Number(process.env.BCRYPT_SALT_ROUNDS) || 12;
 
 // ---------------------------------------------------------------------------
@@ -242,9 +246,6 @@ async function main() {
     create: { email: OWNER_EMAIL, passwordHash, displayName: 'Owner', role: 'OWNER' },
   });
   console.log(`        Owner account created (${OWNER_EMAIL}).`);
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`        ⚠️  Default owner password: ${OWNER_PASSWORD}`);
-  }
 
   // ── 4. Notification Templates ──────────────────────────────────
   console.log('[4/10] Seeding Notification Templates...');
@@ -540,7 +541,6 @@ async function main() {
   console.log('');
   console.log('Demo credentials:');
   console.log(`  Admin login:  ${OWNER_EMAIL}`);
-  console.log(`  Password:     ${OWNER_PASSWORD}`);
   console.log('');
   console.log('Demo customer:');
   console.log(`  Name:         ${DEMO_CUSTOMER.displayName}`);

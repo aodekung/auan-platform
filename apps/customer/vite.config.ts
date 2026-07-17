@@ -12,6 +12,12 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    allowedHosts: [
+      // Ngrok tunnels (all *.ngrok-free.dev subdomains)
+      ".ngrok-free.dev",
+      ".ngrok.dev",
+      ".ngrok-free.app",
+    ],
     proxy: {
       "/api": {
         target: "http://localhost:3000",

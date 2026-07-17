@@ -358,6 +358,18 @@ export const getPublicBusinessHoursRouteSchema = {
   },
 } as const
 
+/** Response shape for ?category=X (returns array of SettingItem) */
+const settingsByCategoryResponseSchema = z.object({
+  success: z.literal(true),
+  data: z.array(z.object({
+    key: z.string(),
+    value: z.string(),
+    category: z.string(),
+    description: z.string().nullable(),
+  })),
+  message: z.string(),
+})
+
 /** GET /api/v1/admin/settings */
 export const getAllSettingsRouteSchema = {
   description: "Get all settings (Owner only). Pass ?category=X to filter by category.",
@@ -365,11 +377,14 @@ export const getAllSettingsRouteSchema = {
   security: [{ bearerAuth: [] }],
   querystring: getAllSettingsQuerySchema,
   response: {
-    200: z.object({
-      success: z.literal(true),
-      data: allSettingsResponseSchema,
-      message: z.string(),
-    }),
+    200: z.union([
+      z.object({
+        success: z.literal(true),
+        data: allSettingsResponseSchema,
+        message: z.string(),
+      }),
+      settingsByCategoryResponseSchema,
+    ]),
     401: errorResponseSchema,
     403: errorResponseSchema,
     500: errorResponseSchema,

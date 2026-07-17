@@ -72,3 +72,6 @@ export type { AuditLogResponse, AuditAction } from "@auan/types"
 
 // Domain types — Dashboard
 export type { DashboardSummary, PopularProduct } from "@auan/types"
+
+// Domain types — Option Templates
+export type { OptionTemplateResponse, OptionGroupTemplateResponse, ProductOptionAssignmentResponse, PriceOverrideResponse } from "@auan/types"

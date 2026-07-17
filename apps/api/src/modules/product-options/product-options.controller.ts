@@ -16,12 +16,13 @@ import type {
   UpdateOptionBody,
   UpdateOptionGroupBody,
 } from "./product-options.schema.js"
+import { getOptionGroupsByProductId } from "../option-templates/option-template.service.js"
+
 import {
   createOption,
   createOptionGroup,
   deleteOptionGroup,
   disableOption,
-  getOptionGroupsByProductId,
   updateOption,
   updateOptionGroup,
 } from "./product-options.service.js"

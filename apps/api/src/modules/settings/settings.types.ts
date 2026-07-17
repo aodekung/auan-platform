@@ -63,6 +63,8 @@ export interface PublicStoreResponse {
   phone: string
   address: string
   isOpen: boolean
+  promptpayQr: string
+  promptpayNumber: string
 }
 
 // ─────────────────────────────────────────────────────────────

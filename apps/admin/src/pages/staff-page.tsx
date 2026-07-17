@@ -6,14 +6,18 @@ import {
   UserPlus,
   Pencil,
   KeyRound,
+  UserX,
   Trash2,
+  Power,
+  PowerOff,
   Users,
   AlertCircle,
   Copy,
   Check,
   ShieldAlert,
 } from "lucide-react"
-import { useStaffList, useCreateStaff, useUpdateStaff, useDeleteStaff, useResetPassword } from "@/hooks/use-staff"
+import { toast } from "sonner"
+import { useStaffList, useCreateStaff, useUpdateStaff, useToggleStaffStatus, useDeleteStaff, useResetPassword } from "@/hooks/use-staff"
 import type { StaffDetailResponse, StaffRole } from "@/api"
 import { PageHeader } from "@/components/layout/page-header"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -148,8 +152,12 @@ function CreateStaffDialog({
   const onSubmit = (values: CreateStaffFormValues) => {
     createStaff.mutate(values, {
       onSuccess: () => {
+        toast.success("เพิ่มพนักงานสำเร็จ")
         reset()
         onOpenChange(false)
+      },
+      onError: (err) => {
+        toast.error(err?.message ?? "ไม่สามารถเพิ่มพนักงานได้")
       },
     })
   }
@@ -494,6 +502,7 @@ function ResetPasswordDialog({
 
 export function StaffPage() {
   const { data, isLoading, isError, error, refetch } = useStaffList()
+  const toggleStaffStatus = useToggleStaffStatus()
   const deleteStaff = useDeleteStaff()
 
   // Dialog states
@@ -502,13 +511,35 @@ export function StaffPage() {
   const [resettingStaff, setResettingStaff] = useState<StaffDetailResponse | null>(null)
   const [deletingStaff, setDeletingStaff] = useState<StaffDetailResponse | null>(null)
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deletingStaff) return
-    deleteStaff.mutate({ id: deletingStaff.id, isActive: false }, {
-      onSuccess: () => {
-        setDeletingStaff(null)
+    const staffId = deletingStaff.id
+    try {
+      await deleteStaff.mutateAsync(staffId)
+      toast.success(`ลบ ${deletingStaff.displayName} สำเร็จ`)
+      setDeletingStaff(null)
+    } catch (err: any) {
+      toast.error(err?.message ?? "ไม่สามารถลบพนักงานได้")
+    }
+  }
+
+  const handleToggleStatus = () => {
+    if (!deletingStaff) return
+    const newIsActive = !deletingStaff.isActive
+    toggleStaffStatus.mutate(
+      { id: deletingStaff.id, isActive: newIsActive },
+      {
+        onSuccess: () => {
+          toast.success(newIsActive
+            ? `เปิดใช้งาน ${deletingStaff.displayName} สำเร็จ`
+            : `ปิดใช้งาน ${deletingStaff.displayName} สำเร็จ`)
+          setDeletingStaff(null)
+        },
+        onError: (err) => {
+          toast.error(err?.message ?? "ไม่สามารถเปลี่ยนสถานะพนักงานได้")
+        },
       },
-    })
+    )
   }
 
   if (isLoading) {
@@ -628,6 +659,32 @@ export function StaffPage() {
                 <Trash2 className="h-3.5 w-3.5" />
                 ลบ
               </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={() => {
+                  toggleStaffStatus.mutate(
+                    { id: row.id, isActive: !row.isActive },
+                    {
+                      onSuccess: () => {
+                        toast.success(!row.isActive
+                          ? `เปิดใช้งาน ${row.displayName} สำเร็จ`
+                          : `ปิดใช้งาน ${row.displayName} สำเร็จ`)
+                      },
+                      onError: (err) => {
+                        toast.error(err?.message ?? "ไม่สามารถเปลี่ยนสถานะพนักงานได้")
+                      },
+                    },
+                  )
+                }}
+              >
+                {row.isActive ? (
+                  <PowerOff className="h-3.5 w-3.5" />
+                ) : (
+                  <Power className="h-3.5 w-3.5" />
+                )}
+              </Button>
             </>
           )}
         </div>
@@ -687,8 +744,8 @@ export function StaffPage() {
         onOpenChange={(open) => {
           if (!open) setDeletingStaff(null)
         }}
-        title="ยืนยันการลบพนักงาน"
-        description={`คุณต้องการลบ ${deletingStaff?.displayName ?? "พนักงาน"} หรือไม่? การลบจะปิดใช้งานบัญชีนี้`}
+        title="ยืนยันการลบ"
+        description={`คุณต้องการลบบัญชี ${deletingStaff?.displayName ?? "พนักงาน"} หรือไม่? การลบนี้จะเป็นการลบถาวรและไม่สามารถกู้คืนได้`}
         cancel={
           <Button variant="outline" onClick={() => setDeletingStaff(null)}>
             ยกเลิก
@@ -701,7 +758,7 @@ export function StaffPage() {
             isLoading={deleteStaff.isPending}
           >
             <Trash2 className="h-4 w-4" />
-            ลบพนักงาน
+            ลบ
           </Button>
         }
       />

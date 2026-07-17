@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
 import { Clock, AlertTriangle, CheckCircle2 } from "lucide-react"
 
@@ -12,7 +12,14 @@ import { useOrderDetail } from "../hooks/use-orders"
 import { useStoreSettings } from "../hooks/use-settings"
 import { ErrorState } from "../components/feedback"
 import { ErrorBoundary } from "../components/feedback/error-boundary"
+import { SubPageHeader } from "../components/layout/sub-page-header"
 import { cn } from "../lib/utils"
+
+function getUploadUrl(relativePath: string): string {
+  if (!relativePath) return ""
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api/v1"
+  return `${baseUrl}/uploads/${relativePath}`
+}
 
 export function PaymentPage() {
   const { orderId } = useParams<{ orderId: string }>()
@@ -123,15 +130,32 @@ export function PaymentPage() {
     )
   }
 
-  // No payment yet — need to create one
-  if (!payment && !createPayment.isPending) {
+  // Auto-create payment if it doesn't exist yet
+  useEffect(() => {
+    if (!payment && orderId && !createPayment.isPending && !createPayment.isError) {
+      handleCreatePayment()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payment, orderId])
+
+  // No payment yet — show loading or error
+  if (!payment && (createPayment.isPending || createPayment.isError)) {
     return (
       <ErrorBoundary>
         <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-4 text-center">
-          <p className="text-sm text-muted-foreground">กำลังเตรียมข้อมูลการชำระเงิน...</p>
-          <Button onClick={handleCreatePayment}>
-            {createPayment.isPending ? "กำลังโหลด..." : "เริ่มชำระเงิน"}
-          </Button>
+          {createPayment.isPending ? (
+            <>
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              <p className="text-sm text-muted-foreground">กำลังเตรียมข้อมูลการชำระเงิน...</p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-destructive">
+                {createPayment.error?.message || "ไม่สามารถสร้างข้อมูลการชำระเงินได้"}
+              </p>
+              <Button onClick={handleCreatePayment}>ลองใหม่</Button>
+            </>
+          )}
         </div>
       </ErrorBoundary>
     )
@@ -141,7 +165,7 @@ export function PaymentPage() {
   return (
     <ErrorBoundary>
       <div className="space-y-4">
-        <h1 className="text-xl font-bold">💰 ชำระเงิน</h1>
+        <SubPageHeader title="💰 ชำระเงิน" onBack={() => navigate("/cart")} />
 
         {/* Order Info */}
         {order && (
@@ -171,8 +195,8 @@ export function PaymentPage() {
 
         {/* PromptPay QR */}
         <PromptPayQR
-          qrImageUrl={storeSettings?.logo ?? ""}
-          promptPayNumber={storeSettings?.phone ?? "0000000000"}
+          qrImageUrl={storeSettings?.promptpayQr ? getUploadUrl(storeSettings.promptpayQr) : ""}
+          promptPayNumber={storeSettings?.promptpayNumber ?? storeSettings?.phone ?? "0000000000"}
           amount={order?.total ?? "0"}
         />
 
@@ -180,12 +204,18 @@ export function PaymentPage() {
 
         {/* Slip Upload */}
         <div className="space-y-2">
-          <h2 className="text-sm font-semibold">อัปโหลดสลิปการโอนเงิน</h2>
+          <h2 className="text-sm font-semibold">อัปโหลดสลิปการโอนเงิน <span className="font-normal text-muted-foreground">(Optional)</span></h2>
+          <p className="text-xs text-muted-foreground">คุณสามารถอัปโหลดสลิปเพื่อช่วยยืนยันการชำระเงินได้</p>
           <SlipUploader
             onUpload={handleSlipUpload}
             isUploading={uploadSlip.isPending}
-            previewUrl={slipPreview || payment?.slipImage}
+            previewUrl={slipPreview || (payment?.slipImage ? getUploadUrl(payment.slipImage) : undefined)}
           />
+          {uploadSlip.isError && (
+            <p className="text-xs text-destructive">
+              {uploadSlip.error?.message || "อัปโหลดไม่สำเร็จ กรุณาลองใหม่"}
+            </p>
+          )}
         </div>
 
         <Separator />

@@ -26,6 +26,7 @@ import { OrderRepository } from "../../database/repositories/order.repository.js
 import { OrderStatusHistoryRepository } from "../../database/repositories/order-status-history.repository.js"
 import { SettingRepository } from "../../database/repositories/setting.repository.js"
 import { dispatchNotification } from "../notifications/notification.service.js"
+import { SETTING_KEYS } from "../settings/settings.constants.js"
 
 import type {
   CreatePaymentRequest,
@@ -87,7 +88,7 @@ function mapPayment(payment: {
     method: payment.method,
     amount: payment.amount.toString(),
     paymentStatus: payment.paymentStatus,
-    slipImage: payment.slipImage,
+    slipImage: payment.slipImage?.replace(/^uploads\//, "") ?? null,
     paidAt: payment.paidAt?.toISOString() ?? null,
     verifiedAt: payment.verifiedAt?.toISOString() ?? null,
     verifiedBy: payment.verifiedBy,
@@ -136,7 +137,7 @@ async function getSettingValue(key: string): Promise<string | null> {
  * Defaults to DEFAULT_PAYMENT_TIMEOUT_SECONDS (300).
  */
 async function getPaymentTimeout(): Promise<number> {
-  const raw = await getSettingValue("payment.timeout")
+  const raw = await getSettingValue(SETTING_KEYS.PAYMENT.TIMEOUT)
   if (raw) {
     const parsed = parseInt(raw, 10)
     if (!Number.isNaN(parsed) && parsed > 0) return parsed
@@ -244,8 +245,9 @@ async function saveSlipImage(
 
   await writeFile(filePath, buffer)
 
-  // Return relative path for storage in DB
-  return `uploads/slips/${finalFileName}`
+  // Return relative path for storage in DB (no "uploads/" prefix —
+  // the server route /api/v1/uploads/* and getUploadUrl() add it).
+  return `slips/${finalFileName}`
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -321,8 +323,8 @@ export async function createPayment(
 
   // Fetch PromptPay details from settings
   const [promptPayNumber, promptPayQrUrl] = await Promise.all([
-    getSettingValue("payment.promptpay.number"),
-    getSettingValue("payment.promptpay.qrcode"),
+    getSettingValue(SETTING_KEYS.PAYMENT.PROMPTPAY_NUMBER),
+    getSettingValue(SETTING_KEYS.PAYMENT.PROMPTPAY_QR),
   ])
 
   return {

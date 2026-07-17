@@ -208,6 +208,7 @@ declare module "@auan/types" {
     imageUrl: string | null
     price: string
     displayOrder: number
+    quantity: number
     isAvailable: boolean
     status: string
     category: { id: string; name: string }
@@ -530,6 +531,44 @@ declare module "@auan/types" {
     details: Record<string, unknown> | null
     ipAddress: string | null
     createdAt: string
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // Domain types — Option Templates
+  // ═══════════════════════════════════════════════════════════════
+
+  export interface PriceOverrideResponse {
+    id: string
+    optionId: string
+    optionName: string
+    additionalPrice: string
+  }
+
+  export interface OptionTemplateResponse {
+    id: string
+    optionGroupId: string
+    name: string
+    additionalPrice: string
+    displayOrder: number
+    isActive: boolean
+  }
+
+  export interface OptionGroupTemplateResponse {
+    id: string
+    name: string
+    required: boolean
+    multiple: boolean
+    displayOrder: number
+    options: OptionTemplateResponse[]
+  }
+
+  export interface ProductOptionAssignmentResponse {
+    id: string
+    productId: string
+    optionGroupId: string
+    displayOrder: number
+    optionGroup: OptionGroupTemplateResponse
+    priceOverrides: PriceOverrideResponse[]
   }
 }
 

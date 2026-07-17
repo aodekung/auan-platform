@@ -25,6 +25,7 @@ import {
   updateStaffHandler,
   staffToggleStatusHandler,
   staffResetPasswordHandler,
+  deleteStaffHandler,
   paymentListHandler,
   paymentDetailHandler,
   orderListHandler,
@@ -36,11 +37,22 @@ import {
 import { verifyPaymentHandler, rejectPaymentHandler } from "../payments/payments.controller.js"
 import {
   listProductsHandler,
+  listAdminProductsHandler,
   getProductHandler,
   createProductHandler,
   updateProductHandler,
   deleteProductHandler,
+  uploadProductImageHandler,
 } from "../products/products.controller.js"
+import {
+  listOptionGroupsHandler,
+  createOptionGroupHandler,
+  updateOptionGroupHandler,
+  deleteOptionGroupHandler,
+  createOptionHandler,
+  updateOptionHandler,
+  disableOptionHandler,
+} from "../product-options/product-options.controller.js"
 import {
   listCategoriesHandler,
   createCategoryHandler,
@@ -74,6 +86,7 @@ import {
   createProductRouteSchema,
   updateProductRouteSchema,
   deleteProductRouteSchema,
+  adminProductQuerySchema,
 } from "../products/products.schema.js"
 import {
   listCategoriesRouteSchema,
@@ -161,6 +174,11 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     handler: staffToggleStatusHandler,
   })
 
+  app.delete("/api/v1/admin/staff/:id", {
+    preHandler: adminAuth,
+    handler: deleteStaffHandler,
+  })
+
   app.post("/api/v1/admin/staff/:id/reset-password", {
     schema: staffResetPasswordRouteSchema,
     preHandler: adminAuth,
@@ -241,9 +259,14 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
   // ═══════════════════════════════════════════════════════════════
 
   app.get("/api/v1/admin/products", {
-    schema: listProductsRouteSchema,
+    schema: {
+      description: "Get product list with status filter (Admin)",
+      tags: ["Admin Products"],
+      querystring: adminProductQuerySchema,
+      response: listProductsRouteSchema.response,
+    },
     preHandler: adminAuth,
-    handler: listProductsHandler,
+    handler: listAdminProductsHandler,
   })
 
   app.get("/api/v1/admin/products/:id", {
@@ -268,6 +291,50 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     schema: deleteProductRouteSchema,
     preHandler: adminAuth,
     handler: deleteProductHandler,
+  })
+
+  app.post("/api/v1/admin/products/:id/image", {
+    preHandler: adminAuth,
+    handler: uploadProductImageHandler,
+  })
+
+  // ═══════════════════════════════════════════════════════════════
+  // PRODUCT OPTION MANAGEMENT (Admin)
+  // ═══════════════════════════════════════════════════════════════
+
+  app.get("/api/v1/admin/products/:productId/options", {
+    preHandler: adminAuth,
+    handler: listOptionGroupsHandler,
+  })
+
+  app.post("/api/v1/admin/products/:productId/options", {
+    preHandler: adminAuth,
+    handler: createOptionGroupHandler,
+  })
+
+  app.patch("/api/v1/admin/product-options/:id", {
+    preHandler: adminAuth,
+    handler: updateOptionGroupHandler,
+  })
+
+  app.delete("/api/v1/admin/product-options/:id", {
+    preHandler: adminAuth,
+    handler: deleteOptionGroupHandler,
+  })
+
+  app.post("/api/v1/admin/product-options/:groupId/options", {
+    preHandler: adminAuth,
+    handler: createOptionHandler,
+  })
+
+  app.patch("/api/v1/admin/product-options/:groupId/options/:id", {
+    preHandler: adminAuth,
+    handler: updateOptionHandler,
+  })
+
+  app.delete("/api/v1/admin/product-options/:groupId/options/:id", {
+    preHandler: adminAuth,
+    handler: disableOptionHandler,
   })
 
   // ═══════════════════════════════════════════════════════════════

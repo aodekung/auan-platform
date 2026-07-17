@@ -13,6 +13,12 @@ import { ProductDetailSkeleton, ErrorState } from "../components/feedback"
 import { ErrorBoundary } from "../components/feedback/error-boundary"
 import { cn } from "../lib/utils"
 
+function getUploadUrl(relativePath: string): string {
+  if (!relativePath) return ""
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api/v1"
+  return `${baseUrl}/uploads/${relativePath}`
+}
+
 export function ProductDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -112,10 +118,10 @@ export function ProductDetailPage() {
         </Link>
 
         {/* Product Image */}
-        <div className="aspect-square w-full overflow-hidden rounded-xl bg-muted">
+        <div className="mx-auto aspect-square w-full max-w-xs overflow-hidden rounded-xl bg-muted">
           {product.imageUrl ? (
             <img
-              src={product.imageUrl}
+              src={getUploadUrl(product.imageUrl)}
               alt={product.name}
               className="h-full w-full object-cover"
             />
@@ -132,7 +138,7 @@ export function ProductDetailPage() {
           {product.description && (
             <p className="text-sm text-muted-foreground">{product.description}</p>
           )}
-          <p className="text-2xl font-bold text-primary">
+          <p className="text-xl font-bold text-primary">
             ฿{currentPrice.toLocaleString()}
           </p>
           {!product.isAvailable && (

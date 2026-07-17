@@ -37,6 +37,9 @@ export class OrderRepository {
             options: {
               orderBy: { id: "asc" },
             },
+            product: {
+              select: { imageUrl: true },
+            },
           },
           orderBy: { createdAt: "asc" },
         },

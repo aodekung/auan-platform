@@ -52,6 +52,11 @@ export const createProductBodySchema = z.object({
     .int("displayOrder must be an integer")
     .min(0, "displayOrder must be 0 or greater")
     .optional(),
+  quantity: z
+    .number({ invalid_type_error: "quantity must be a number" })
+    .int("quantity must be an integer")
+    .min(0, "quantity must be 0 or greater")
+    .optional(),
   isAvailable: z.boolean().optional(),
   status: z.enum(["ACTIVE", "DISABLED"]).optional(),
 })
@@ -99,6 +104,11 @@ export const updateProductBodySchema = z.object({
     .int("displayOrder must be an integer")
     .min(0, "displayOrder must be 0 or greater")
     .optional(),
+  quantity: z
+    .number()
+    .int("quantity must be an integer")
+    .min(0, "quantity must be 0 or greater")
+    .optional(),
   isAvailable: z.boolean().optional(),
   status: z.enum(["ACTIVE", "DISABLED"]).optional(),
 })
@@ -122,6 +132,13 @@ export const productQuerySchema = z.object({
 })
 
 export type ProductQuery = z.infer<typeof productQuerySchema>
+
+/** GET /admin/products — Admin query with status filter. */
+export const adminProductQuerySchema = productQuerySchema.extend({
+  status: z.enum(["ACTIVE", "DISABLED"]).optional(),
+})
+
+export type AdminProductQuery = z.infer<typeof adminProductQuerySchema>
 
 // ─────────────────────────────────────────────────────────────
 // Response Schemas (for Swagger)
@@ -157,6 +174,7 @@ const productSchema = z.object({
   price: z.string(),
   status: z.string(),
   displayOrder: z.number(),
+  quantity: z.number(),
   isAvailable: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),

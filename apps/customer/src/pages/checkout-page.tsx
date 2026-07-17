@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -15,6 +15,7 @@ import { useAddresses } from "../hooks/use-addresses"
 import { useAuth } from "../providers/auth-provider"
 import { CartSkeleton, ErrorState } from "../components/feedback"
 import { ErrorBoundary } from "../components/feedback/error-boundary"
+import { SubPageHeader } from "../components/layout/sub-page-header"
 import { cn } from "../lib/utils"
 
 // ─────────────────────────────────────────────────────────────
@@ -76,6 +77,7 @@ export function CheckoutPage() {
   const onSubmit = (data: CheckoutFormData) => {
     createOrder.mutate(
       {
+        addressId: selectedAddressId ?? undefined,
         note: data.note || undefined,
       },
       {
@@ -90,15 +92,21 @@ export function CheckoutPage() {
     return <CartSkeleton />
   }
 
+  // Navigate to cart if empty (useEffect to avoid side-effect during render)
+  useEffect(() => {
+    if (!cartLoading && (!cart || cart.items.length === 0)) {
+      navigate("/cart", { replace: true })
+    }
+  }, [cart, cartLoading, navigate])
+
   if (!cart || cart.items.length === 0) {
-    navigate("/cart")
     return null
   }
 
   return (
     <ErrorBoundary>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <h1 className="text-xl font-bold">📋 ยืนยันออเดอร์</h1>
+        <SubPageHeader title="📋 ยืนยันออเดอร์" onBack={() => navigate("/cart")} />
 
         {/* Saved Addresses */}
         {addresses && addresses.length > 0 && (

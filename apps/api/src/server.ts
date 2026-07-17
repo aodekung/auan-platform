@@ -1,5 +1,8 @@
+import 'dotenv/config';
 import fastifyCookie from "@fastify/cookie"
 import Fastify from "fastify"
+import { mkdir, readFile, stat } from "node:fs/promises"
+import path from "node:path"
 import {
   serializerCompiler,
   validatorCompiler,
@@ -18,6 +21,7 @@ import { categoryRoutes } from "./modules/categories/index.js"
 import { notificationRoutes } from "./modules/notifications/index.js"
 import { orderRoutes } from "./modules/orders/index.js"
 import { productOptionRoutes } from "./modules/product-options/index.js"
+import { optionTemplateRoutes } from "./modules/option-templates/index.js"
 import { productRoutes } from "./modules/products/index.js"
 import { settingsRoutes } from "./modules/settings/index.js"
 import { lineWebhookRoutes } from "./modules/line-webhook/index.js"
@@ -61,6 +65,65 @@ async function bootstrap() {
   // Multipart file upload support
   await registerMultipart(app)
 
+  // Serve uploaded files statically
+  // Custom buffer-based file serving to fix "stream closed prematurely" on Windows.
+  // @fastify/static uses createReadStream which has timing issues on Windows.
+  // Reading files into a buffer eliminates the stream race condition entirely.
+  const uploadsDir = path.join(process.cwd(), env.UPLOAD_PATH)
+  await mkdir(uploadsDir, { recursive: true })
+  await mkdir(path.join(uploadsDir, "products"), { recursive: true })
+  await mkdir(path.join(uploadsDir, "payment"), { recursive: true })
+  await mkdir(path.join(uploadsDir, "store"), { recursive: true })
+
+  const uploadMimeTypes: Record<string, string> = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+    ".svg": "image/svg+xml",
+  }
+
+  app.get("/api/v1/uploads/*", async (request, reply) => {
+    const urlPath = (request.params as Record<string, string>)["*"]
+    if (!urlPath) {
+      void reply.code(404).send({ error: "Not found" })
+      return
+    }
+
+    // Prevent directory traversal
+    const safePath = urlPath.replace(/\\/g, "/").replace(/\.\./g, "").replace(/^\/+/, "")
+    const fullPath = path.resolve(path.join(uploadsDir, safePath))
+
+    // Ensure the resolved path is still within uploadsDir
+    if (!fullPath.startsWith(uploadsDir)) {
+      void reply.code(403).send({ error: "Forbidden" })
+      return
+    }
+
+    try {
+      const buffer = await readFile(fullPath)
+      const ext = path.extname(fullPath).toLowerCase()
+      const contentType = uploadMimeTypes[ext] || "application/octet-stream"
+      const fileStat = await stat(fullPath)
+
+      void reply
+        .header("Content-Type", contentType)
+        .header("Content-Length", buffer.length)
+        .header("Cache-Control", "public, max-age=86400")
+        .header("Last-Modified", fileStat.mtime.toUTCString())
+        .send(buffer)
+    } catch (err: unknown) {
+      const code = (err as NodeJS.ErrnoException).code
+      if (code === "ENOENT") {
+        void reply.code(404).send({ error: "File not found" })
+      } else {
+        app.log.error(err, "Error serving uploaded file")
+        void reply.code(500).send({ error: "Internal server error" })
+      }
+    }
+  })
+
   // JWT authentication
   await registerJwt(app)
 
@@ -73,6 +136,7 @@ async function bootstrap() {
   await categoryRoutes(app)
   await productRoutes(app)
   await productOptionRoutes(app)
+  await optionTemplateRoutes(app)
   await cartRoutes(app)
   await notificationRoutes(app)
   await settingsRoutes(app)

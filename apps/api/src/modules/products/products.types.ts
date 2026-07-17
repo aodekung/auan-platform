@@ -26,6 +26,7 @@ export interface ProductResponse {
   price: string
   status: string
   displayOrder: number
+  quantity: number
   isAvailable: boolean
   createdAt: string
   updatedAt: string
@@ -54,6 +55,7 @@ export interface CreateProductRequest {
   imageUrl?: string
   price: number
   displayOrder?: number
+  quantity?: number
   isAvailable?: boolean
   status?: string
 }
@@ -68,6 +70,7 @@ export interface UpdateProductRequest {
   imageUrl?: string
   price?: number
   displayOrder?: number
+  quantity?: number
   isAvailable?: boolean
   status?: string
 }
